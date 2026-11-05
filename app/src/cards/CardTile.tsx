@@ -13,6 +13,7 @@ import { priceLabel } from '../rules/prices';
 import { useLocalCards } from '../local/localCards';
 import { BoxIcon, HeartIcon, StarIcon } from '../app/icons';
 import { useCachedImage } from './imageCache';
+import { isTouch, watchLongPress } from '../app/device';
 import styles from './CardTile.module.css';
 
 export interface CardAbilities {
@@ -68,10 +69,18 @@ export function CardTile({ card, can, status = null, formatLabel, picked, onPick
         e.preventDefault();
         useCardMenu.getState().openPanel(e.clientX, e.clientY, card, onChange);
       }}
-      title={`${name} (${face.set.toUpperCase()} ${face.collectorNumber})${status ? ` · ${STATUS_LABEL[status]} in ${formatLabel}` : ''}${can.pick ? '\nShift+click to select several' : ''}`}
+      title={`${name} (${face.set.toUpperCase()} ${face.collectorNumber})${status ? ` · ${STATUS_LABEL[status]} in ${formatLabel}` : ''}${can.pick && !isTouch() ? '\nShift+click to select several' : ''}`}
       onPointerDown={(e) => {
-        if (e.button !== 0 || !(can.drag || can.pick)) return;
-        e.preventDefault();
+        if (e.button !== 0) return;
+        // Touch: holding a finger on the card opens its menu (there's no right-click).
+        const cancelPress = watchLongPress(e, () => {
+          stop();
+          useCardMenu.getState().openPanel(e.clientX, e.clientY, card, onChange);
+        });
+        const touch = e.pointerType === 'touch';
+        if (!(can.drag || can.pick)) return;
+        // A finger can still scroll the panel (touch-action: pan-y), so only a mouse cancels the default.
+        if (!touch) e.preventDefault();
         if (e.shiftKey) {
           if (can.pick) onPick?.();
           return;
@@ -79,20 +88,26 @@ export function CardTile({ card, can, status = null, formatLabel, picked, onPick
         if (!can.drag) return;
         const cards = dragGroup?.() ?? [card];
         // Start once the pointer has moved a little, so a plain click stays a click.
+        // A finger pulls the card out sideways; up and down scrolls the panel.
         const x0 = e.clientX;
         const y0 = e.clientY;
         const move = (ev: PointerEvent) => {
-          if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 4) return;
+          const dx = Math.abs(ev.clientX - x0);
+          const dy = Math.abs(ev.clientY - y0);
+          if (touch ? dx < 12 || dx < dy : Math.hypot(dx, dy) < 4) return;
           stop();
           startCardDrag(cards, ev.clientX, ev.clientY);
           onDragOut?.();
         };
-        const stop = () => {
+        function stop() {
+          cancelPress();
           window.removeEventListener('pointermove', move);
           window.removeEventListener('pointerup', stop);
-        };
+          window.removeEventListener('pointercancel', stop);
+        }
         window.addEventListener('pointermove', move);
         window.addEventListener('pointerup', stop);
+        window.addEventListener('pointercancel', stop);
       }}
     >
       <div className={styles.card}>

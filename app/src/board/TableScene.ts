@@ -5,7 +5,11 @@
 // empty table pans, wheel zooms. Shift + click adds/removes a card from the
 // selection; Shift + drag selects by area. Pencil + drag draws a fence (holding
 // Ctrl turns on the Pencil). Right-click opens the card menu; dropping cards on
-// the side panel removes them. Physics and snapping come in a later step.
+// the side panel removes them.
+//
+// Touch: one finger works like the left button (drag a card, pan the table),
+// two fingers pinch to zoom and pan from anywhere, a long-press on a card
+// opens its menu, and the Select tool stands in for Shift.
 import { cachedImage } from '../cards/imageCache';
 import { Application, Assets, CanvasSource, Container, FederatedPointerEvent, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { useTable } from '../model/store';
@@ -19,6 +23,7 @@ const BASE_H = 134;
 const MAX_TAGS = 5;
 import type { Fence, TableCard, TableState } from '../model/types';
 import { pileTop } from '../model/card';
+import { watchLongPress } from '../app/device';
 import { useFenceUi } from '../fences/uiStore';
 import { endLiveFit, liveFit, settleFences, startLiveFit } from '../fences/actions';
 import { useCardMenu } from './cardMenuStore';
@@ -180,6 +185,8 @@ const GLIDE_MS = 220;
 const THROW_FRICTION = 0.004;
 /** Release speed (table px per ms) above which a dragged card slides on. */
 const THROW_MIN_SPEED = 0.7;
+/** A finger needs a firmer flick to throw, so a quick drag doesn't send cards sliding. */
+const TOUCH_THROW_MIN_SPEED = 1.6;
 const THROW_MAX_DISTANCE = 1400;
 /** How much a picked-up card grows. */
 const LIFT_SCALE = 0.04;
@@ -215,6 +222,13 @@ export class TableScene {
   private glideMs: number | null = null;
   /** Recent pointer positions while dragging cards, to measure a throw. */
   private dragSamples: { t: number; x: number; y: number }[] = [];
+  /** The pointer that started the current drag; other fingers don't move it. */
+  private dragPointer: number | null = null;
+  /** Fingers on the table (window coordinates), for pinch. */
+  private touches = new Map<number, { x: number; y: number }>();
+  /** Two-finger pinch in progress: last center and finger distance. */
+  private pinch: { cx: number; cy: number; dist: number } | null = null;
+  private cancelLongPress = () => {};
 
   constructor(app: Application, host: HTMLElement) {
     this.host = host;
@@ -234,6 +248,12 @@ export class TableScene {
     host.addEventListener('wheel', this.onWheel, { passive: false });
     host.addEventListener('contextmenu', this.onContextMenu);
     host.addEventListener('pointerleave', this.onLeave);
+    // Capture phase: fingers are counted before Pixi sees the event, so a second finger can turn a drag into a pinch.
+    host.addEventListener('pointerdown', this.onTouchDown, true);
+    window.addEventListener('pointermove', this.onTouchMove, true);
+    window.addEventListener('pointerup', this.onTouchUp, true);
+    window.addEventListener('pointercancel', this.onTouchUp, true);
+    host.style.touchAction = 'none';
     window.addEventListener(THEME_EVENT, this.onTheme);
 
     this.sync(useTable.getState());
@@ -258,6 +278,11 @@ export class TableScene {
     this.host.removeEventListener('wheel', this.onWheel);
     this.host.removeEventListener('contextmenu', this.onContextMenu);
     this.host.removeEventListener('pointerleave', this.onLeave);
+    this.host.removeEventListener('pointerdown', this.onTouchDown, true);
+    window.removeEventListener('pointermove', this.onTouchMove, true);
+    window.removeEventListener('pointerup', this.onTouchUp, true);
+    window.removeEventListener('pointercancel', this.onTouchUp, true);
+    this.cancelLongPress();
     window.removeEventListener(THEME_EVENT, this.onTheme);
   }
 
@@ -711,6 +736,7 @@ export class TableScene {
     const p = this.world.toLocal(e.global);
     // Area selection adds to what's already selected.
     this.drag = { kind: 'box', startX: p.x, startY: p.y, x: p.x, y: p.y, cardId, base: useTable.getState().selection };
+    this.dragPointer = e.pointerId;
   }
 
   private startDraw(e: FederatedPointerEvent) {
@@ -719,9 +745,11 @@ export class TableScene {
     const x = snapToGrid(p.x, e.altKey);
     const y = snapToGrid(p.y, e.altKey);
     this.drag = { kind: 'draw', startX: x, startY: y, x, y };
+    this.dragPointer = e.pointerId;
   }
 
   private onCardDown = (e: FederatedPointerEvent, id: string) => {
+    if (this.pinch) return e.stopPropagation();
     this.clearPeek();
     if (this.isDrawGesture(e)) {
       e.stopPropagation();
@@ -739,8 +767,8 @@ export class TableScene {
     }
     if (e.button !== 0) return;
     e.stopPropagation();
-    if (e.shiftKey) {
-      // Shift: a click toggles this card, a drag selects by area (decided on release).
+    if (e.shiftKey || useTable.getState().activeTool === 'select') {
+      // Shift (or the Select tool): a click toggles this card, a drag selects by area (decided on release).
       this.startBox(e, id);
       return;
     }
@@ -755,6 +783,10 @@ export class TableScene {
     const cards = useTable.getState().cards;
     const start = Object.fromEntries(selection.filter((c) => cards[c]).map((c) => [c, { x: cards[c].x, y: cards[c].y }]));
     this.drag = { kind: 'cards', ids: selection, lead: id, lastX: e.global.x, lastY: e.global.y, start };
+    this.dragPointer = e.pointerId;
+    // Touch: a finger held still on the card opens its menu instead.
+    this.cancelLongPress();
+    this.cancelLongPress = watchLongPress(e.nativeEvent as PointerEvent, () => this.longPressMenu(id, viewportX(e), viewportY(e)));
     this.dragSamples = [{ t: performance.now(), x: e.global.x, y: e.global.y }];
     // Picked up: snap to the pointer (no glide) and rise a little.
     for (const sid of selection) {
@@ -769,20 +801,27 @@ export class TableScene {
   };
 
   private onBackgroundDown = (e: FederatedPointerEvent) => {
+    if (this.pinch) return;
     if (this.isDrawGesture(e)) return this.startDraw(e);
     useCardMenu.getState().close();
     if (e.button !== 0) return;
-    if (e.shiftKey) {
+    // No hover on a touch screen: touching a fence shows its options.
+    if (e.pointerType === 'touch') this.updateHover(e);
+    if (e.shiftKey || useTable.getState().activeTool === 'select') {
       // Shift + drag: select by area.
       this.startBox(e);
       return;
     }
     useTable.getState().select([]);
     this.drag = { kind: 'pan', lastX: e.global.x, lastY: e.global.y };
+    this.dragPointer = e.pointerId;
   };
 
   private onPointerMove = (e: FederatedPointerEvent) => {
+    if (this.pinch) return;
+    if (this.drag && this.dragPointer !== null && e.pointerId !== this.dragPointer) return;
     if (!this.drag) {
+      if (e.pointerType === 'touch') return;
       this.updateIssueTooltip(e);
       this.updatePeek(e);
       return this.updateHover(e);
@@ -827,8 +866,11 @@ export class TableScene {
   };
 
   private onPointerUp = (e: FederatedPointerEvent) => {
+    if (this.drag && this.dragPointer !== null && e.pointerId !== this.dragPointer) return;
+    this.cancelLongPress();
     const drag = this.drag;
     this.drag = null;
+    this.dragPointer = null;
     if (drag?.kind === 'cards') {
       this.setPanelDropTarget(false);
       this.setLift(drag.ids, 0);
@@ -858,7 +900,8 @@ export class TableScene {
         // Thrown: the cards slide on and slow to a stop, then land there.
         const { vx, vy } = this.releaseVelocity();
         const speed = Math.hypot(vx, vy);
-        if (speed > THROW_MIN_SPEED && !e.altKey) {
+        const minSpeed = e.pointerType === 'touch' ? TOUCH_THROW_MIN_SPEED : THROW_MIN_SPEED;
+        if (speed > minSpeed && !e.altKey) {
           const distance = Math.min(THROW_MAX_DISTANCE, (speed * speed) / (2 * THROW_FRICTION));
           this.glideMs = Math.min(900, Math.max(GLIDE_MS, (2 * distance) / speed));
           useTable.getState().moveCards(drag.ids, (vx / speed) * distance, (vy / speed) * distance);
@@ -871,10 +914,16 @@ export class TableScene {
       this.drawPreview.clear();
       const r = this.drawRect(drag);
       // Shift + click (no drag) on a card toggles it in the selection.
-      if (drag.cardId && r.width < 4 && r.height < 4) {
+      // A finger wobbles more than a mouse: allow a few screen pixels.
+      const slop = e.pointerType === 'touch' ? 10 / useTable.getState().camera.zoom : 4;
+      const tap = r.width < slop && r.height < slop;
+      if (drag.cardId && tap) {
         const t = useTable.getState();
         const id = drag.cardId;
         t.select(t.selection.includes(id) ? t.selection.filter((s) => s !== id) : [...t.selection, id]);
+      } else if (tap && useTable.getState().activeTool === 'select') {
+        // Select tool: a tap on empty table clears the selection.
+        useTable.getState().select([]);
       }
     }
     if (drag?.kind === 'draw') {
@@ -931,10 +980,87 @@ export class TableScene {
     e.preventDefault();
   };
 
-  private onLeave = () => {
+  private onLeave = (e: PointerEvent) => {
+    // A finger "leaves" every time it lifts; keep a touched fence's options showing.
+    if (e.pointerType === 'touch') return;
     this.clearPeek();
     useFenceUi.getState().setHovered(null);
   };
+
+  // ---- touch -------------------------------------------------------------
+
+  private onTouchDown = (e: PointerEvent) => {
+    if (e.pointerType !== 'touch') return;
+    this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this.touches.size !== 2) return;
+    // Second finger: whatever the first one started becomes a pinch.
+    this.cancelLongPress();
+    this.cancelDrag();
+    this.clearPeek();
+    useCardMenu.getState().close();
+    this.pinch = this.pinchShape();
+  };
+
+  private onTouchMove = (e: PointerEvent) => {
+    if (e.pointerType !== 'touch' || !this.touches.has(e.pointerId)) return;
+    this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!this.pinch || this.touches.size < 2) return;
+    const next = this.pinchShape();
+    const rect = this.host.getBoundingClientRect();
+    const t = useTable.getState();
+    t.panBy(next.cx - this.pinch.cx, next.cy - this.pinch.cy);
+    if (this.pinch.dist > 0 && next.dist > 0) t.zoomAt(next.dist / this.pinch.dist, next.cx - rect.left, next.cy - rect.top);
+    this.pinch = next;
+  };
+
+  private onTouchUp = (e: PointerEvent) => {
+    if (e.pointerType !== 'touch' || !this.touches.delete(e.pointerId)) return;
+    // The pinch ends when a finger lifts; the one left behind does nothing until it lifts too.
+    if (this.pinch && this.touches.size < 2) this.pinch = null;
+  };
+
+  /** Center and spread of the first two fingers. */
+  private pinchShape() {
+    const [a, b] = [...this.touches.values()];
+    return { cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, dist: Math.hypot(a.x - b.x, a.y - b.y) };
+  }
+
+  /** Stop the current drag where it is (cards land as if dropped, without a throw). */
+  private cancelDrag() {
+    const drag = this.drag;
+    this.drag = null;
+    this.dragPointer = null;
+    if (!drag) return;
+    if (drag.kind === 'cards') {
+      this.finishLift(drag.ids);
+      land(drag.ids, drag.lead, false);
+      settleFences();
+    } else if (drag.kind === 'box' || drag.kind === 'draw') this.drawPreview.clear();
+  }
+
+  private finishLift(ids: string[]) {
+    this.setPanelDropTarget(false);
+    this.setLift(ids, 0);
+    endLiveFit();
+    queueMicrotask(() => (this.glideMs = null));
+    useLandingPreview.getState().set(null);
+  }
+
+  /** Long-press on a card: put it back where it was picked up and open its menu. */
+  private longPressMenu(id: string, clientX: number, clientY: number) {
+    const drag = this.drag;
+    if (drag?.kind !== 'cards' || drag.lead !== id) return;
+    this.drag = null;
+    this.dragPointer = null;
+    this.finishLift(drag.ids);
+    const t = useTable.getState();
+    const back = Object.fromEntries(drag.ids.filter((c) => t.cards[c] && drag.start[c]).map((c) => [c, drag.start[c]]));
+    // Only nudged under the slop distance: move back without a history step if nothing moved.
+    if (Object.entries(back).some(([c, p]) => t.cards[c].x !== p.x || t.cards[c].y !== p.y)) t.placeCards(back);
+    const ids = t.selection.includes(id) ? t.selection : [id];
+    t.select(ids);
+    useCardMenu.getState().open(clientX, clientY, ids);
+  }
 
   private onWheel = (e: WheelEvent) => {
     e.preventDefault();

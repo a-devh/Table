@@ -208,3 +208,9 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+/* Fingers move fences by their name and resize them by the corner, so the browser mustn't scroll there. */
+.name,
+.resize {
+  touch-action: none;
+}

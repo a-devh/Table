@@ -105,7 +105,6 @@ export function AddFormatDialog({
         role="dialog"
         aria-label={title}
         className={ui.dialog}
-        style={{ maxHeight: 'calc(100vh - 32px)', overflowY: 'auto' }}
         onSubmit={(e) => {
           e.preventDefault();
           save();

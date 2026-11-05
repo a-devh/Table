@@ -66,3 +66,29 @@
 .panel[data-remove-drop='collection'][data-list='wishlist'][data-drop-active='true']::after {
   content: 'Drop to add to Wishlist';
 }
+
+/* Phone: the panel is a sheet over the table, above the tab bar. */
+@media (max-width: 700px) {
+  .panel {
+    position: fixed;
+    z-index: 6;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: var(--tabbar-h);
+    width: auto !important;
+    padding: max(16px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 16px max(12px, env(safe-area-inset-left));
+    border-right: none;
+    transition: opacity 0.15s;
+  }
+
+  .resize {
+    display: none;
+  }
+
+  /* A card pulled out of the sheet: get out of the way so it can be dropped on the table. */
+  :global(body[data-card-drag]) .panel {
+    opacity: 0;
+    pointer-events: none;
+  }
+}

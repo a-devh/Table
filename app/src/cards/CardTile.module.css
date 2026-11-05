@@ -4,6 +4,14 @@
   touch-action: none;
 }
 
+/* Touch: up and down scrolls the panel; sideways pulls the card out. */
+@media (pointer: coarse) {
+  .tile,
+  .tile .card {
+    touch-action: pan-y;
+  }
+}
+
 .card {
   position: relative;
   aspect-ratio: 63 / 88;

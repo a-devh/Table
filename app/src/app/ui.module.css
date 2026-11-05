@@ -98,11 +98,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Keep dialogs clear of the screen edges and the iPhone's notch and home bar. */
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
   background: rgba(0, 0, 0, 0.45);
 }
 
 .dialog {
-  width: min(560px, calc(100vw - 32px));
+  width: min(560px, 100%);
+  /* Taller than the screen: the dialog scrolls inside itself. */
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 16px;
   display: flex;
   flex-direction: column;

@@ -1,5 +1,7 @@
 :root {
   color-scheme: dark;
+  /* Phone tab bar height, including the home indicator area. */
+  --tabbar-h: calc(56px + env(safe-area-inset-bottom));
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --table-bg: #121316;
   --rail: #0b0c0e;
@@ -56,6 +58,33 @@ body,
   margin: 0;
   height: 100%;
   overflow: hidden;
+}
+
+/* Phones: fill the visible screen (Safari's bars come and go, so 100% / 100vh can run under them). */
+#root {
+  height: 100dvh;
+}
+
+html {
+  /* No double-tap zoom or page bounce; the table zooms and pans itself. */
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* No iOS "save image" callout or text selection when holding a finger on cards. */
+@media (pointer: coarse) {
+  body {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  input,
+  textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
 }
 
 body {

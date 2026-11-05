@@ -11,6 +11,7 @@ import { endLiveFit, liveFit, settleFences, startLiveFit } from '../fences/actio
 import { panelDragIds } from './dragState';
 import { STEP } from '../fences/layout';
 import { land, landingFor, useLandingPreview } from './snapping';
+import { PANEL_DRAG_END } from '../app/device';
 
 function boardRect(): DOMRect | null {
   return document.getElementById('board')?.getBoundingClientRect() ?? null;
@@ -52,6 +53,8 @@ export function startCardDrag(cards: Card[], clientX: number, clientY: number) {
   }
   document.body.appendChild(ghost);
   document.body.style.cursor = 'grabbing';
+  // Phone: the panel sheet steps aside while the card is out (Modules.module.css).
+  document.body.dataset.cardDrag = '';
 
   let lastX = clientX;
   let lastY = clientY;
@@ -84,8 +87,11 @@ export function startCardDrag(cards: Card[], clientX: number, clientY: number) {
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', up);
     window.removeEventListener('keydown', key);
+    window.removeEventListener('pointercancel', cancel);
     ghost.remove();
     document.body.style.cursor = '';
+    delete document.body.dataset.cardDrag;
+    window.dispatchEvent(new Event(PANEL_DRAG_END));
     endLiveFit();
     panelDragIds.clear();
     useLandingPreview.getState().set(null);
@@ -99,7 +105,10 @@ export function startCardDrag(cards: Card[], clientX: number, clientY: number) {
     finish(!!r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom, e.altKey);
   };
   const key = (e: KeyboardEvent) => e.key === 'Escape' && finish(false);
+  // The browser took the touch over (e.g. a scroll): put it back.
+  const cancel = () => finish(false);
   window.addEventListener('pointermove', move);
+  window.addEventListener('pointercancel', cancel);
   window.addEventListener('pointerup', up);
   window.addEventListener('keydown', key);
 }

@@ -108,7 +108,8 @@ export interface Camera {
   zoom: number;
 }
 
-export type Tool = 'hand' | 'pencil';
+/** Select (touch screens only) does what Shift does with a mouse: tap toggles a card, drag selects an area. */
+export type Tool = 'hand' | 'pencil' | 'select';
 
 /** Everything a .table file stores, plus session-only fields. */
 export interface TableState {
