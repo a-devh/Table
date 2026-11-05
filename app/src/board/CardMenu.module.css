@@ -168,3 +168,17 @@
   object-fit: cover;
   background: var(--line);
 }
+
+/* Long menus stay on screen and scroll. */
+.menu {
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+}
+
+/* Bigger targets for fingers. */
+@media (pointer: coarse) {
+  .item {
+    height: 40px;
+    font-size: 14px;
+  }
+}

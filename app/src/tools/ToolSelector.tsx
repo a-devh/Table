@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useTable } from '../model/store';
-import { GridIcon, HandIcon, PencilIcon } from '../app/icons';
+import { GridIcon, HandIcon, PencilIcon, SelectIcon } from '../app/icons';
+import { useTouch } from '../app/device';
 import { useSettings } from '../settings/settingsStore';
 import ui from '../app/ui.module.css';
 
@@ -8,6 +9,7 @@ export function ToolSelector() {
   const tool = useTable((s) => s.activeTool);
   const setTool = useTable((s) => s.setTool);
   const gridSnap = useSettings((s) => s.gridSnap);
+  const touch = useTouch();
 
   // Optional shortcuts: H = Hand, P = Pencil, G = grid snapping on/off (ignored while typing).
   useEffect(() => {
@@ -56,6 +58,17 @@ export function ToolSelector() {
       >
         <PencilIcon />
       </button>
+      {/* Touch screens have no Shift key: this tool selects instead. */}
+      {touch && (
+        <button
+          aria-label="Select: tap cards to select, drag to select an area"
+          aria-pressed={tool === 'select'}
+          className={ui.iconButton}
+          onClick={() => setTool(tool === 'select' ? 'hand' : 'select')}
+        >
+          <SelectIcon />
+        </button>
+      )}
       <span className={ui.divider} />
       <button
         aria-label={gridSnap ? 'Snap to grid is on (G)' : 'Snap to grid is off (G)'}

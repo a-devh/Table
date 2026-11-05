@@ -34,7 +34,7 @@ export function ArtPicker() {
   if (!request) return null;
   return createPortal(
     <div className={ui.scrim} onPointerDown={(e) => e.target === e.currentTarget && close()}>
-      <div role="dialog" aria-label={`Select art for ${request.name}`} className={ui.dialog} style={{ width: 'min(760px, calc(100vw - 32px))' }}>
+      <div role="dialog" aria-label={`Select art for ${request.name}`} className={ui.dialog} style={{ width: 'min(760px, 100%)' }}>
         <header className={ui.dialogHeader}>
           <h2>{request.name}</h2>
           <button aria-label="Close" className={ui.iconButton} onClick={close}>

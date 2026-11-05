@@ -63,7 +63,11 @@ export function CardMenu() {
             role="menu"
             aria-label="Card options"
             className={styles.menu}
-            style={{ left: Math.min(menu.x, window.innerWidth - 230), top: Math.min(menu.y, window.innerHeight - 460) }}
+            style={{
+              left: Math.max(8, Math.min(menu.x, window.innerWidth - 230)),
+              top: Math.max(8, Math.min(menu.y, window.innerHeight - 460)),
+              maxHeight: `calc(100dvh - ${Math.max(8, Math.min(menu.y, window.innerHeight - 460))}px - 8px)`,
+            }}
             onContextMenu={(e) => e.preventDefault()}
           >
             <MenuItems target={menu.target} close={close} />

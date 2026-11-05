@@ -7,6 +7,8 @@ import { BUILT_IN_FORMATS } from '../rules/formats';
 import { useFormats } from '../formats/formatsStore';
 import { AddFormatDialog } from '../formats/AddFormatDialog';
 import { useDeckCheck } from '../formats/deckCheckStore';
+import { usePhone } from '../app/device';
+import { MoreIcon } from '../app/icons';
 
 const ADD_FORMAT = '__add-format';
 const EDIT_FORMAT = '__edit-format';
@@ -26,6 +28,8 @@ export function UtilityBar() {
   const error = useFileState((s) => s.error);
   const saved = useFileState((f) => f.saved);
   const dirty = useTable((t) => isDirty(t, saved));
+  const phone = usePhone();
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -41,8 +45,8 @@ export function UtilityBar() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  return (
-    <div role="toolbar" aria-label="Deck" className={`${ui.bubbleBottom} ${styles.bar}`}>
+  const fields = (
+    <>
       {/* The deck name gives up width first when the table is narrow. */}
       <label className={styles.nameField}>
         <span className={ui.visuallyHidden}>Deck name</span>
@@ -96,7 +100,10 @@ export function UtilityBar() {
           {check.problems ? `✕ ${check.problems}` : '✓ Legal'}
         </span>
       )}
-      <span className={ui.divider} />
+    </>
+  );
+  const actions = (
+    <>
       <button className={ui.button} title="New table (Ctrl+N)" onClick={() => newTable()}>
         New
       </button>
@@ -110,6 +117,10 @@ export function UtilityBar() {
       <button className={ui.primary} onClick={() => setExporting(true)}>
         Export
       </button>
+    </>
+  );
+  const dialogs = (
+    <>
       {exporting && <ExportDialog onClose={() => setExporting(false)} />}
       {addingFormat && (
         <AddFormatDialog
@@ -139,6 +150,47 @@ export function UtilityBar() {
           </button>
         </div>
       )}
+    </>
+  );
+
+  if (phone) {
+    // Phone: one small button; the deck name, format and file actions open in a sheet above the toolbar.
+    const flag = format !== 'none' && check.problems > 0;
+    return (
+      <div role="toolbar" aria-label="Deck" className={ui.bubbleBottom}>
+        <button
+          aria-label="Deck: name, format, New, Open, Save, Export"
+          aria-expanded={sheetOpen}
+          aria-pressed={sheetOpen}
+          className={ui.iconButton}
+          style={{ position: 'relative' }}
+          onClick={() => setSheetOpen((o) => !o)}
+        >
+          <MoreIcon />
+          {(dirty || flag) && <span className={styles.badgeDot} data-bad={flag || undefined} />}
+        </button>
+        {sheetOpen && (
+          <>
+            <div className={styles.sheetScrim} onPointerDown={() => setSheetOpen(false)} />
+            <div role="dialog" aria-label="Deck" className={styles.sheet}>
+              <div className={styles.sheetRow}>{fields}</div>
+              <div className={styles.sheetRow} onClick={(e) => (e.target as HTMLElement).closest('button') && setSheetOpen(false)}>
+                {actions}
+              </div>
+            </div>
+          </>
+        )}
+        {dialogs}
+      </div>
+    );
+  }
+
+  return (
+    <div role="toolbar" aria-label="Deck" className={`${ui.bubbleBottom} ${styles.bar}`}>
+      {fields}
+      <span className={ui.divider} />
+      {actions}
+      {dialogs}
     </div>
   );
 }

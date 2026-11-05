@@ -1,6 +1,7 @@
 // Settings (gear in the sidebar). For now: the mana math. Theme, snapping,
 // merge defaults and the image cache join here as those features land.
 import { createPortal } from 'react-dom';
+import { isTouch } from '../app/device';
 import { useEffect, useState } from 'react';
 import { useSettings, type Accent, type ThemeChoice } from './settingsStore';
 import { useFormats } from '../formats/formatsStore';
@@ -96,7 +97,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           <label className={styles.row}>
             <span>
               Snap to grid
-              <small>Dropped cards line up on the dotted grid. Hold Alt while dragging to place freely.</small>
+              <small>Dropped cards line up on the dotted grid. {isTouch() ? 'Turn it off with the grid button to place freely.' : 'Hold Alt while dragging to place freely.'}</small>
             </span>
             <input type="checkbox" checked={gridSnap} onChange={(e) => setGridSnap(e.target.checked)} />
           </label>

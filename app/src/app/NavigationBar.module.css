@@ -36,3 +36,24 @@
 .spacer {
   flex: 1;
 }
+
+/* Phone: a tab bar along the bottom, clear of the home indicator. */
+@media (max-width: 700px) {
+  .rail {
+    order: 1;
+    position: relative;
+    z-index: 7;
+    width: auto;
+    height: var(--tabbar-h);
+    padding: 6px 8px env(safe-area-inset-bottom);
+    flex-direction: row;
+    justify-content: space-around;
+    gap: 4px;
+    border-right: none;
+    border-top: 1px solid var(--line);
+  }
+
+  .spacer {
+    display: none;
+  }
+}

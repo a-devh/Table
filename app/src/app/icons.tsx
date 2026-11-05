@@ -55,3 +55,12 @@ export const SunIcon = () => (
 export const MoonIcon = () => (
   <svg {...base}><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
 );
+export const TableIcon = () => (
+  <svg {...base}><rect x="3" y="5" width="18" height="14" rx="2" /><rect x="7" y="8.5" width="4" height="6" rx="0.8" /><rect x="13" y="9.5" width="4" height="6" rx="0.8" /></svg>
+);
+export const SelectIcon = () => (
+  <svg {...base}><rect x="4" y="4" width="16" height="16" rx="2" strokeDasharray="3 3" /><path d="M10 9l6 3-2.6 1 1.6 3-1.4.7-1.6-3L10 15z" /></svg>
+);
+export const MoreIcon = () => (
+  <svg {...base}><circle cx="5" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" /><circle cx="19" cy="12" r="1.2" /></svg>
+);

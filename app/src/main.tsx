@@ -6,9 +6,11 @@ import './index.css';
 import { Container } from './app/Container';
 import { startTheme } from './settings/theme';
 import { startLocalSync } from './local/syncTable';
+import { startTouchGuards } from './app/device';
 
 startTheme();
 startLocalSync();
+startTouchGuards();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -107,3 +107,69 @@
   color: #ff8f85;
   background: rgba(255, 143, 133, 0.14);
 }
+
+/* Phone: deck controls in a sheet above the bottom toolbar. */
+.sheetScrim {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+}
+
+.sheet {
+  position: fixed;
+  z-index: 9;
+  left: max(8px, env(safe-area-inset-left));
+  right: max(8px, env(safe-area-inset-right));
+  bottom: calc(var(--tabbar-h) + 56px);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--panel-text);
+  box-shadow: var(--bubble-shadow);
+  border: 1px solid var(--line);
+}
+
+.sheetRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sheetRow > .nameField {
+  flex: 1 1 100%;
+}
+
+.sheetRow > button {
+  flex: 1;
+  height: 40px;
+}
+
+.sheetRow select {
+  height: 40px;
+}
+
+/* Unsaved changes, or red when the deck breaks its format. */
+.badgeDot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.badgeDot[data-bad] {
+  background: #ff8f85;
+}
+
+@media (max-width: 700px) {
+  .error {
+    bottom: calc(56px + 8px);
+    max-width: calc(100vw - 24px);
+  }
+}
