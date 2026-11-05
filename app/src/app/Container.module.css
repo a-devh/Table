@@ -1,0 +1,53 @@
+.container {
+  display: flex;
+  height: 100%;
+}
+
+.board {
+  position: relative;
+  container-type: inline-size;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Screen-fixed controls: bubbles attached flush to the bottom edge, centered with equal gaps. */
+.bottomBubbles {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  /* Bubbles stay inside the table area (it shrinks when a side panel opens):
+     gaps tighten and the deck bar gives up width; when the table is very
+     narrow they wrap into two rows (see the container query below). */
+  justify-content: safe center;
+  gap: 8px clamp(6px, 1.2vw, 16px);
+  padding: 0 8px;
+  pointer-events: none;
+}
+
+.bottomBubbles > * {
+  flex-shrink: 0;
+}
+
+.bottomBubbles > [aria-label='Deck'] {
+  flex-shrink: 1;
+}
+
+.bottomBubbles > * {
+  pointer-events: auto;
+}
+
+/* Narrow table: the small bubbles stay on the bottom edge and the deck bar sits above them. */
+@container (max-width: 860px) {
+  .bottomBubbles {
+    flex-wrap: wrap-reverse;
+  }
+
+  .bottomBubbles > [aria-label='Deck'] {
+    order: 1;
+    border-radius: 12px;
+  }
+}

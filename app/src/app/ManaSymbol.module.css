@@ -1,0 +1,19 @@
+.symbol {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: #1b1b1b;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+.W { background: #f8f6d8; }
+.U { background: #c1d7e9; }
+.B { background: #bab1ab; }
+.R { background: #e49977; }
+.G { background: #a3c095; }
+.C { background: #ccc2c0; }

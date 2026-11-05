@@ -1,0 +1,68 @@
+.panel {
+  position: relative;
+  flex-shrink: 0;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.placeholder {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Grab strip on the panel's right edge for resizing. */
+.resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  z-index: 1;
+  cursor: ew-resize;
+}
+
+.resize:hover {
+  background: var(--input-line);
+}
+
+/* Cards dragged from the table over the panel: dropping removes them. */
+.panel[data-drop-active='true']::after {
+  content: 'Drop to remove';
+  position: absolute;
+  inset: 8px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--accent);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--panel-text);
+  background: color-mix(in srgb, var(--panel) 80%, transparent);
+  pointer-events: none;
+}
+
+.panel[data-remove-drop='favorites'][data-drop-active='true']::after {
+  content: 'Drop to add to Favorites';
+}
+
+.panel[data-remove-drop='collection'][data-drop-active='true']::after {
+  content: 'Drop to add to Collection';
+}
+
+.panel[data-remove-drop='collection'][data-list='wishlist'][data-drop-active='true']::after {
+  content: 'Drop to add to Wishlist';
+}

@@ -1,0 +1,230 @@
+/* Analytics panel: sits on the table next to its fence and scales with zoom. */
+.panel {
+  position: absolute;
+  width: 280px;
+  max-height: 680px;
+  overflow-y: auto;
+  padding: 10px 12px 12px;
+  transform-origin: top left;
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--panel-text);
+  box-shadow: var(--bubble-shadow);
+  pointer-events: auto;
+  font-size: 12px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.select,
+.iconButton {
+  height: 24px;
+  font-size: 12px;
+  border-radius: 5px;
+  border: 1px solid var(--input-line);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.select {
+  flex: 1;
+}
+
+.iconButton {
+  padding: 0 8px;
+}
+
+.iconButton[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: transparent;
+}
+
+.block {
+  padding-top: 10px;
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.block h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.aside {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.note {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* CMC columns */
+.columns {
+  display: flex;
+  gap: 4px;
+  height: 104px;
+}
+
+.column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.value,
+.label {
+  height: 14px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.track {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--input-line);
+}
+
+.stack {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.barV {
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  background: var(--accent);
+}
+
+/* X spells that could be cast for this value: striped, on top of the firm count. */
+.barPotential {
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  background: repeating-linear-gradient(135deg, var(--accent) 0 3px, transparent 3px 6px);
+  opacity: 0.7;
+}
+
+.barPotential + .barV {
+  border-radius: 0;
+}
+
+.potential {
+  margin-left: 1px;
+  font-size: 9px;
+  opacity: 0.8;
+}
+
+.column:hover .barV,
+.row:hover .barH {
+  opacity: 0.8;
+}
+
+/* Horizontal rows */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 82px 1fr 56px;
+  align-items: center;
+  gap: 8px;
+}
+
+.rowLabel {
+  display: flex;
+  align-items: center;
+}
+
+.rowTrack {
+  height: 10px;
+}
+
+.barH {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 0 4px 4px 0;
+  background: var(--accent);
+}
+
+.rowValue {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mana sources table */
+.sources {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.sources th {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: left;
+  padding: 0 4px 4px 0;
+}
+
+.sources td {
+  padding: 3px 4px 3px 0;
+}
+
+.short {
+  font-weight: 600;
+}
+
+.shortMark {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.hardest {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+
+.note[data-bad] {
+  color: #ff8f85;
+}
+
+.issues {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.issues strong {
+  color: #ff8f85;
+  font-weight: 600;
+}

@@ -1,0 +1,81 @@
+.section {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.row small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.help {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.swatches {
+  display: flex;
+  gap: 8px;
+}
+
+/* Each swatch shows its accent as it looks in the current theme. */
+.swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+  cursor: pointer;
+  background: #7aa7ff;
+}
+
+.swatch[aria-checked='true'] {
+  outline-color: var(--panel-text);
+}
+
+.swatch[data-swatch='amber'] { background: #e0a84a; }
+.swatch[data-swatch='green'] { background: #5fc48a; }
+.swatch[data-swatch='violet'] { background: #a98bff; }
+.swatch[data-swatch='rose'] { background: #f07d9a; }
+:global(:root[data-theme='light']) .swatch[data-swatch='default'] { background: #b84f29; }
+:global(:root[data-theme='light']) .swatch[data-swatch='amber'] { background: #a8650c; }
+:global(:root[data-theme='light']) .swatch[data-swatch='green'] { background: #2f7d4f; }
+:global(:root[data-theme='light']) .swatch[data-swatch='violet'] { background: #6a4fc9; }
+:global(:root[data-theme='light']) .swatch[data-swatch='rose'] { background: #b8365a; }
+
+.note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.actions button[data-danger] {
+  color: #e5484d;
+  border-color: #e5484d;
+}

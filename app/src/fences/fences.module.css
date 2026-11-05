@@ -1,0 +1,210 @@
+/* Fence UI drawn over the table. The overlay itself ignores the pointer so the table still gets it. */
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Moved by the pan (set directly from the camera); children are placed at world position x zoom. */
+.cameraLayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+}
+
+.header {
+  position: absolute;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.name {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--panel-text);
+  cursor: move;
+  user-select: none;
+}
+
+.count {
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--line);
+  color: var(--panel-text);
+}
+
+.options {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--panel-text);
+  box-shadow: var(--bubble-shadow);
+}
+
+.optionLabel {
+  font-size: 11px;
+  margin-right: 4px;
+  opacity: 0.7;
+}
+
+.select,
+.optionButton {
+  height: 22px;
+  font-size: 12px;
+  border-radius: 5px;
+  border: 1px solid var(--input-line);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.optionButton {
+  padding: 0 8px;
+}
+
+.optionButton:hover {
+  background: var(--line);
+}
+
+.resize {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
+  pointer-events: auto;
+}
+
+.resize::after {
+  content: '';
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  border-radius: 0 0 3px 0;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+}
+
+.picker {
+  position: absolute;
+  width: 180px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--panel-text);
+  box-shadow: var(--bubble-shadow);
+}
+
+.pickerTitle {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.7;
+  padding: 2px 6px 6px;
+}
+
+.pickerItem {
+  height: 30px;
+  padding: 0 8px;
+  text-align: left;
+  font-size: 13px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.pickerItem:hover {
+  background: var(--line);
+}
+
+.menuWrap {
+  position: relative;
+}
+
+.menu {
+  position: absolute;
+  top: 26px;
+  left: 0;
+  z-index: 3;
+  min-width: 200px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--panel-text);
+  box-shadow: var(--bubble-shadow);
+}
+
+.menuItem {
+  height: 28px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menuItem:hover:not(:disabled) {
+  background: var(--line);
+}
+
+.menuItem:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Zone count outside the format's rule. */
+.count[data-bad] {
+  color: #ff8f85;
+  font-weight: 700;
+}
+
+/* A group (a fence inside a fence): a quieter name. */
+.header[data-group] .name {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.rename {
+  width: 160px;
+  padding: 2px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--input);
+  color: var(--panel-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}

@@ -1,0 +1,103 @@
+:root {
+  color-scheme: dark;
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --table-bg: #121316;
+  --rail: #0b0c0e;
+  --line: #23252b;
+  --panel: #18191d;
+  --panel-text: #e8e8ea;
+  --muted: #9a9ca3;
+  --input: #111215;
+  --input-line: #33353c;
+  --accent: #7aa7ff;
+  --on-accent: #0b0c0e;
+  --bubble-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  /* Scryfall set symbols are black SVGs. */
+  --set-icon-filter: invert(0.9);
+  --grid-dot: #484c57;
+  --fence-line: #5a5d66;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --table-bg: #e7e2d8;
+  --rail: #fbfaf7;
+  --line: #ddd6c8;
+  --panel: #fbfaf7;
+  --panel-text: #25231f;
+  --muted: #6b665c;
+  --input: #ffffff;
+  --input-line: #d6cfc0;
+  --accent: #b84f29;
+  --on-accent: #ffffff;
+  --bubble-shadow: 0 4px 16px rgba(60, 50, 30, 0.25);
+  --set-icon-filter: none;
+  --grid-dot: #a99f8b;
+  --fence-line: #a89f8c;
+}
+
+/* Accent choices (Settings > Appearance), tuned for each theme. */
+:root[data-accent='amber'] { --accent: #e0a84a; }
+:root[data-accent='green'] { --accent: #5fc48a; }
+:root[data-accent='violet'] { --accent: #a98bff; }
+:root[data-accent='rose'] { --accent: #f07d9a; }
+:root[data-theme='light'][data-accent='amber'] { --accent: #a8650c; }
+:root[data-theme='light'][data-accent='green'] { --accent: #2f7d4f; }
+:root[data-theme='light'][data-accent='violet'] { --accent: #6a4fc9; }
+:root[data-theme='light'][data-accent='rose'] { --accent: #b8365a; }
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font);
+  transition: background-color 0.2s;
+  background: var(--table-bg);
+  color: var(--panel-text);
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/* Scrollbars: thin, themed, and faded in only while hovering the scrolling
+   area. A registered custom property lets the thumb color animate. */
+@property --scrollbar-thumb {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: transparent;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+  transition: --scrollbar-thumb 0.25s ease;
+}
+
+*:hover {
+  --scrollbar-thumb: var(--input-line);
+}
+
+/* Keyrune's common rarity is black: outline it so it shows on the dark theme. */
+:root[data-theme='dark'] .ss-common {
+  -webkit-text-stroke: 0.6px #8a8d94;
+}
+
+/* Native dropdown lists follow the theme instead of the OS default. */
+select option,
+select optgroup {
+  background: var(--panel);
+  color: var(--panel-text);
+}

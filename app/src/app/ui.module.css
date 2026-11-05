@@ -1,0 +1,125 @@
+/* Shared UI pieces used across features. */
+
+.bubbleBottom {
+  height: 48px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 12px 12px 0 0;
+  background: var(--panel);
+  color: var(--panel-text);
+  box-shadow: var(--bubble-shadow);
+}
+
+.iconButton {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  cursor: pointer;
+}
+
+.iconButton:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.iconButton:hover:not(:disabled) {
+  background: var(--line);
+}
+
+.iconButton[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.button {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  border: 1px solid var(--input-line);
+  background: transparent;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--line);
+}
+
+.primary {
+  composes: button;
+  border: none;
+  font-weight: 600;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.primary:hover {
+  background: var(--accent);
+  filter: brightness(1.1);
+}
+
+.input {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--input-line);
+  background: var(--input);
+  font-size: 13px;
+}
+
+.divider {
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background: var(--input-line);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Modal dialogs (Export, Settings). */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.dialog {
+  width: min(560px, calc(100vw - 32px));
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--panel-text);
+  box-shadow: var(--bubble-shadow);
+}
+
+.dialogHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dialogHeader h2 {
+  margin: 0;
+  font-size: 16px;
+}

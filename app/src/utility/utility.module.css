@@ -1,0 +1,109 @@
+/* Shrinks (deck name first) so the bottom bubbles fit beside a wide side panel. */
+.bar {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.bar > * {
+  flex-shrink: 0;
+}
+
+.bar > .nameField {
+  flex: 0 1 170px;
+  min-width: 70px;
+}
+
+.dirty {
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  background: currentColor;
+  vertical-align: middle;
+}
+
+.error {
+  position: absolute;
+  left: 50%;
+  bottom: 64px;
+  transform: translateX(-50%);
+  max-width: 520px;
+  padding: 8px 8px 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  background: var(--panel);
+  color: var(--panel-text);
+  box-shadow: var(--bubble-shadow);
+  border-left: 3px solid #d9534f;
+  pointer-events: auto;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.preview {
+  height: 320px;
+  padding: 10px;
+  resize: vertical;
+  border-radius: 8px;
+  border: 1px solid var(--input-line);
+  background: var(--input);
+  color: inherit;
+  font: 12px/1.5 ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.status {
+  flex: 1;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Deck legality next to the format. */
+.legal {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: #7fd19a;
+  background: rgba(127, 209, 154, 0.12);
+  cursor: default;
+}
+
+.legal[data-bad] {
+  color: #ff8f85;
+  background: rgba(255, 143, 133, 0.14);
+}

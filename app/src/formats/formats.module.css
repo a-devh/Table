@@ -1,0 +1,207 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.field > span:first-child {
+  font-weight: 600;
+}
+
+.inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zones {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.zoneRow {
+  display: grid;
+  grid-template-columns: 1fr 80px 36px;
+  gap: 6px;
+  align-items: center;
+}
+
+.addZone {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.help {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 8px;
+  border-radius: 999px;
+  background: var(--line);
+  font-size: 12px;
+}
+
+.chip button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding-top: 6px;
+}
+
+.problem {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.footer button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dropdownButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dropdownPanel {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--input-line);
+  background: var(--panel);
+  box-shadow: var(--bubble-shadow);
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.preset {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--input-line);
+  background: transparent;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.preset:hover:not(:disabled) {
+  background: var(--line);
+}
+
+.list {
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+
+.setRow,
+.cardRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
+.setRow:hover,
+.cardRow:hover {
+  background: var(--line);
+}
+
+.setIcon {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  object-fit: contain;
+  filter: var(--set-icon-filter);
+}
+
+.setName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setMeta {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.check {
+  width: 14px;
+  flex: none;
+  color: var(--accent);
+}
+
+.empty {
+  padding: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
