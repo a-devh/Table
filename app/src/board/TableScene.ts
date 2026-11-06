@@ -241,16 +241,15 @@ const LIFT_FREQ = (2 * Math.PI) / 260;
 const LIFT_DAMPING = 0.45;
 const TILT_FREQ = (2 * Math.PI) / 340;
 const TILT_DAMPING = 0.5;
-/** Hover: a card under the pointer for this long magnifies and comes to the front. */
-const HOVER_DELAY = 300;
-/** Magnified size on screen: at least this many times bigger, and at least this many screen px wide (up to MAX). */
-const HOVER_MIN_SCALE = 1.25;
-const HOVER_SCREEN_WIDTH = 330;
-const HOVER_MAX_SCALE = 3;
+/** Hover: a card under the pointer for this long (just enough to skip cards the pointer passes over) magnifies and comes to the front. */
+const HOVER_DELAY = 60;
+/** A hovered card grows this much: a gentle nudge, not a zoom. */
+const HOVER_SCALE = 1.08;
 /** A card in a pile slides this far (table px) out of it while hovered, back against the way the pile runs. */
 const PILE_SLIDE = 2 * GRID_CELL;
-const HOVER_FREQ = (2 * Math.PI) / 300;
-const HOVER_DAMPING = 0.8;
+/** Hover eases in and out quickly with no overshoot. */
+const HOVER_FREQ = (2 * Math.PI) / 140;
+const HOVER_DAMPING = 1;
 /** A press only becomes a drag (and lifts the card out of its layer) after this many screen px. */
 const DRAG_THRESHOLD = 4;
 /** Turning a double-faced card over: the new side opens out from edge-on over this long. */
@@ -636,7 +635,7 @@ export class TableScene {
     const l = this.lift.get(id)?.value ?? 0;
     const h = this.hover.get(id);
     const hv = h ? Math.max(0, h.value) : 0;
-    const scale = liftScale(l) * (1 + (this.hoverScale() - 1) * hv);
+    const scale = liftScale(l) * (1 + (HOVER_SCALE - 1) * hv);
     const sx = h ? h.slide.x * hv : 0;
     const sy = h ? h.slide.y * hv : 0;
     const rotation = (this.rotations.get(id) ?? 0) + (this.tilt.get(id)?.value ?? 0);
@@ -1065,11 +1064,6 @@ export class TableScene {
     this.hoverId = null;
   }
 
-  /** How much bigger a fully hovered card is drawn at the current zoom. */
-  private hoverScale(): number {
-    const zoom = useTable.getState().camera.zoom;
-    return Math.min(HOVER_MAX_SCALE, Math.max(HOVER_MIN_SCALE, HOVER_SCREEN_WIDTH / (CARD_WIDTH * zoom)));
-  }
 
   private onBackgroundDown = (e: FederatedPointerEvent) => {
     if (this.pinch) return;
