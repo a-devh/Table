@@ -2,6 +2,7 @@ import type { ModuleName } from './NavigationBar';
 import { SearchModule } from '../search/SearchModule';
 import { FavoritesModule } from '../favorites/FavoritesModule';
 import { CollectionModule } from '../collection/CollectionModule';
+import { DecksModule } from '../decks/DecksModule';
 import { PANEL_WIDTH, useSettings } from '../settings/settingsStore';
 import styles from './Modules.module.css';
 
@@ -33,6 +34,7 @@ export function Modules({ module }: { module: ModuleName }) {
       {module === 'search' && <SearchModule />}
       {module === 'favorites' && <FavoritesModule />}
       {module === 'collection' && <CollectionModule />}
+      {module === 'decks' && <DecksModule />}
     </section>
   );
 }

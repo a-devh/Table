@@ -8,12 +8,17 @@ import type { TableState } from '../model/types';
 import { clearHistory } from '../history/history';
 import { currentFormat, useFormats } from '../formats/formatsStore';
 import { isTauri } from '@tauri-apps/api/core';
+import { saveToLibrary as saveLibraryDeck } from '../decks/library';
 import { confirmDiscard, fileNameFor, pickTableFile, saveTextFile } from './fileIO';
 
 type Snapshot = Pick<TableState, 'cards' | 'fences' | 'tags' | 'deckName' | 'format'>;
 
 interface FileState {
   path: string | null;
+  /** The library deck the table was opened from or saved to, if any. */
+  deckId: string | null;
+  /** The card picked as that deck's box cover (Scryfall id). */
+  deckCover?: string;
   saved: Snapshot;
   error: string | null;
   setError: (error: string | null) => void;
@@ -23,6 +28,7 @@ const snapshot = (s: TableState): Snapshot => ({ cards: s.cards, fences: s.fence
 
 export const useFileState = create<FileState>()((set) => ({
   path: null,
+  deckId: null,
   saved: snapshot(useTable.getState()),
   error: null,
   setError: (error) => set({ error }),
@@ -39,14 +45,16 @@ if (!isTauri()) {
   });
 }
 
-const markSaved = (path: string | null) => useFileState.setState({ path, saved: snapshot(useTable.getState()), error: null });
+/** Remember what the table now matches: a file, a library deck, or neither. */
+export const markSaved = (path: string | null, deckId: string | null = null, deckCover?: string) =>
+  useFileState.setState({ path, deckId, deckCover, saved: snapshot(useTable.getState()), error: null });
 
-async function okToDiscard(): Promise<boolean> {
+export async function okToDiscard(): Promise<boolean> {
   if (!isDirty(useTable.getState(), useFileState.getState().saved)) return true;
   return confirmDiscard('This table has unsaved changes. Discard them?');
 }
 
-async function run(action: () => Promise<void>) {
+export async function runFileAction(action: () => Promise<void>) {
   try {
     await action();
   } catch (e) {
@@ -55,7 +63,7 @@ async function run(action: () => Promise<void>) {
 }
 
 export const newTable = () =>
-  run(async () => {
+  runFileAction(async () => {
     if (!(await okToDiscard())) return;
     useTable.getState().loadTable(null);
     clearHistory();
@@ -63,7 +71,7 @@ export const newTable = () =>
   });
 
 export const openTable = () =>
-  run(async () => {
+  runFileAction(async () => {
     if (!(await okToDiscard())) return;
     const file = await pickTableFile();
     if (!file) return;
@@ -77,7 +85,9 @@ export const openTable = () =>
 
 /** Save to the current file, or ask where when there isn't one (or for Save As). */
 export const saveTable = (saveAs = false) =>
-  run(async () => {
+  runFileAction(async () => {
+    const { deckId, path: current } = useFileState.getState();
+    if (deckId && !current && !saveAs) return saveLibraryDeck();
     const state = useTable.getState();
     const format = currentFormat();
     const path = await saveTextFile(toTableFile(state, format.custom ? format : undefined), {
@@ -85,5 +95,6 @@ export const saveTable = (saveAs = false) =>
       suggestedName: fileNameFor(state.deckName, 'table'),
       kind: 'table',
     });
-    if (path) markSaved(path);
+    const f = useFileState.getState();
+    if (path) markSaved(path, saveAs ? null : f.deckId, saveAs ? undefined : f.deckCover);
   });

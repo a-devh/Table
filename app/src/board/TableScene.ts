@@ -10,6 +10,7 @@
 // Touch: one finger works like the left button (drag a card, pan the table),
 // two fingers pinch to zoom and pan from anywhere, a long-press on a card
 // opens its menu, and the Select tool stands in for Shift.
+import { setDeckCover } from '../decks/library';
 import { cachedImage } from '../cards/imageCache';
 import { Application, Assets, CanvasSource, Container, FederatedPointerEvent, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { useTable } from '../model/store';
@@ -77,7 +78,7 @@ function overRemoveTarget(clientX: number, clientY: number): boolean {
   return !!r && clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
 }
 
-/** Which side panel is open: 'search', 'favorites' or 'collection'. */
+/** Which side panel is open: 'search', 'favorites', 'collection' or 'decks'. */
 const openPanel = () => document.querySelector<HTMLElement>('[data-remove-drop]')?.dataset.removeDrop ?? 'search';
 
 /**
@@ -1021,6 +1022,11 @@ export class TableScene {
         if (panel === 'search') {
           // Dropped back onto Search: take the cards off the table.
           t.removeCards(drag.ids);
+        } else if (panel === 'decks') {
+          // Dropped onto Decks: that card becomes the deck's box cover, and the cards go back.
+          const lead = t.cards[drag.lead] ?? t.cards[drag.ids[0]];
+          if (lead) setDeckCover(lead.copies[lead.copies.length - 1].data);
+          t.placeCards(drag.start);
         } else {
           // Dropped onto Favorites / Collection: add them there, and the cards go back where they were.
           const faces = drag.ids.map((id) => t.cards[id]).filter(Boolean).map((c) => c.copies[0].data);
