@@ -547,6 +547,8 @@ export class TableScene {
     }
     // Drawing order follows the saved card order (stacks look right after reopening).
     const order = Object.keys(state.cards).join(',');
+    // Selected along with other cards: a hovered card stops popping out.
+    if (this.hoverId && state.selection.length > 1 && state.selection.includes(this.hoverId)) this.endHover();
     if (order !== this.cardOrder && !this.drag) {
       this.cardOrder = order;
       this.restack();
@@ -1032,6 +1034,8 @@ export class TableScene {
     const t = useTable.getState();
     const card = t.cards[id];
     if (!card || this.drag || this.pinch) return;
+    // Part of a multi-card selection (e.g. a whole pile picked to move together): no pop-out.
+    if (t.selection.length > 1 && t.selection.includes(id)) return;
     // In a pile (another card lies over this one): slide out of it, back against the way the pile runs,
     // like pulling a card up out of a fanned stack. The part you're pointing at stays under the pointer.
     const ids = Object.keys(t.cards);
