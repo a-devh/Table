@@ -25,6 +25,23 @@ export const useCardMenu = create<CardMenuState>()((set) => ({
   close: () => set({ menu: null }),
 }));
 
+/** F turns the selected double-faced cards over (ignored while typing). */
+export function useFlipKey() {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('input, textarea, select, [contenteditable]')) return;
+      if (e.key.toLowerCase() !== 'f' || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = useTable.getState();
+      if (!t.selection.length) return;
+      e.preventDefault();
+      t.flipCards(t.selection);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+}
+
 /** Delete/Backspace removes the selected cards (ignored while typing). */
 export function useDeleteKey() {
   useEffect(() => {

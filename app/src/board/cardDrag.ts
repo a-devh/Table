@@ -6,7 +6,7 @@
 import { useTable } from '../model/store';
 import { CARD_HEIGHT, CARD_RADIUS, CARD_WIDTH } from '../model/derived';
 import type { Card } from '../model/types';
-import { faceOf } from '../model/card';
+import { faceOf, shownImage } from '../model/card';
 import { endLiveFit, liveFit, settleFences, startLiveFit } from '../fences/actions';
 import { panelDragIds, panelDragPose } from './dragState';
 import { STEP } from '../fences/layout';
@@ -17,7 +17,8 @@ function boardRect(): DOMRect | null {
   return document.getElementById('board')?.getBoundingClientRect() ?? null;
 }
 
-export function startCardDrag(cards: Card[], clientX: number, clientY: number) {
+/** `flipped`: the panel showed the cards turned over, so they land that way (double-faced cards). */
+export function startCardDrag(cards: Card[], clientX: number, clientY: number, flipped = false) {
   const board = boardRect();
   if (!board || !cards.length) return;
   const t = useTable.getState();
@@ -26,7 +27,7 @@ export function startCardDrag(cards: Card[], clientX: number, clientY: number) {
   const start = toWorld(clientX, clientY);
   // Stepped like a fence column, the last card on top under the pointer.
   const n = cards.length;
-  const ids = cards.map((c, i) => t.addCard(c, start.x - CARD_WIDTH / 2, start.y - CARD_HEIGHT / 2 - (n - 1 - i) * STEP));
+  const ids = cards.map((c, i) => t.addCard(c, start.x - CARD_WIDTH / 2, start.y - CARD_HEIGHT / 2 - (n - 1 - i) * STEP, flipped));
   // Marked as carried before the table next redraws, so they pop up off the panel.
   for (const id of ids) panelDragIds.add(id);
   t.select(ids);
@@ -46,8 +47,9 @@ export function startCardDrag(cards: Card[], clientX: number, clientY: number) {
     height: '100vh',
     overflow: 'hidden',
   } satisfies Partial<CSSStyleDeclaration>);
-  const ghost = document.createElement(data.imageKey ? 'img' : 'div');
-  if (ghost instanceof HTMLImageElement) ghost.src = data.imageKey;
+  const image = shownImage(data, flipped);
+  const ghost = document.createElement(image ? 'img' : 'div');
+  if (ghost instanceof HTMLImageElement) ghost.src = image;
   else ghost.textContent = data.name;
   Object.assign(ghost.style, {
     position: 'absolute',
@@ -56,7 +58,7 @@ export function startCardDrag(cards: Card[], clientX: number, clientY: number) {
     borderRadius: `${CARD_RADIUS * zoom}px`,
     background: 'var(--line)',
     fontSize: '11px',
-    padding: data.imageKey ? '0' : '6px',
+    padding: image ? '0' : '6px',
     boxSizing: 'border-box',
     transformOrigin: '50% 50%',
     boxShadow: '0 10px 24px rgba(0, 0, 0, 0.35)',
