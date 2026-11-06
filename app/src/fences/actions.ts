@@ -49,44 +49,71 @@ export function settleFences() {
 
 /**
  * Live fit while cards are dragged: a fence grows as a dragged card nears its
- * edge and shrinks back as it moves away. A dragged card counts as inside
- * while its center is within the fence as it was without the dragged cards,
- * so dragging on past that edge takes the card out (the fence lets go of it).
+ * edge and shrinks back as it moves away. Whether a card stays in is about
+ * momentum: dragged slowly it holds on and the fence keeps growing to follow
+ * it; flicked out fast, the fence lets go. A card comes in when its center
+ * enters the fence as it was without the dragged cards.
  */
-let live: { fenceId: string; base: Rect; still: TableCard[] }[] = [];
+let live: { fenceId: string; base: Rect; still: TableCard[]; held: Set<string> }[] = [];
 let liveIds = new Set<string>();
+/** Pointer speed (screen px per ms, smoothed) above which a card leaves the fence it's held by. */
+const LET_GO_SPEED = 0.9;
+let motion: { x: number; y: number; t: number; speed: number } | null = null;
+
+const centerIn = (c: TableCard, r: Rect) => {
+  const cx = c.x + CARD_WIDTH / 2;
+  const cy = c.y + CARD_HEIGHT / 2;
+  return cx >= r.x && cx <= r.x + r.width && cy >= r.y && cy <= r.y + r.height;
+};
 
 export function startLiveFit(draggedIds: string[]) {
   const t = useTable.getState();
   liveIds = new Set(draggedIds);
+  motion = null;
+  const dragged = draggedIds.map((id) => t.cards[id]).filter(Boolean);
   live = Object.values(t.fences)
     .filter((f) => !f.stacked && f.view === 'custom' && (!f.parentId || groupShown(f, t.fences)))
     .map((f) => {
       const still = cardsInFence(t, f.id).filter((c) => !liveIds.has(c.id));
-      return { fenceId: f.id, base: fitFence(f, still), still };
+      const base = fitFence(f, still);
+      return { fenceId: f.id, base, still, held: new Set(dragged.filter((c) => centerIn(c, base)).map((c) => c.id)) };
     });
+}
+
+/** How fast the dragged cards are moving, in screen px per ms (smoothed). */
+function dragSpeed(lead: TableCard | undefined, zoom: number): number {
+  if (!lead) return 0;
+  const now = performance.now();
+  if (!motion) {
+    motion = { x: lead.x, y: lead.y, t: now, speed: 0 };
+    return 0;
+  }
+  const dt = Math.max(1, now - motion.t);
+  const instant = (Math.hypot(lead.x - motion.x, lead.y - motion.y) * zoom) / dt;
+  motion = { x: lead.x, y: lead.y, t: now, speed: motion.speed * 0.6 + instant * 0.4 };
+  return motion.speed;
 }
 
 export function liveFit() {
   if (!live.length) return;
   const t = useTable.getState();
   const dragged = [...liveIds].map((id) => t.cards[id]).filter(Boolean);
+  const fast = dragSpeed(dragged[0], t.camera.zoom) > LET_GO_SPEED;
   const rects: Record<string, Rect> = {};
-  for (const { fenceId, base, still } of live) {
-    const fence = t.fences[fenceId];
+  for (const entry of live) {
+    const fence = t.fences[entry.fenceId];
     if (!fence) continue;
-    const inside = dragged.filter((c) => {
-      const cx = c.x + CARD_WIDTH / 2;
-      const cy = c.y + CARD_HEIGHT / 2;
-      return cx >= base.x && cx <= base.x + base.width && cy >= base.y && cy <= base.y + base.height;
-    });
-    const r = fitFence(fence, [...still, ...inside]);
-    if (r.x !== fence.x || r.y !== fence.y || r.width !== fence.width || r.height !== fence.height) rects[fenceId] = r;
+    // In: over the fence's own area, or held (and not flicked away).
+    const inside = dragged.filter((c) => centerIn(c, entry.base) || (entry.held.has(c.id) && !fast));
+    entry.held = new Set(inside.map((c) => c.id));
+    const r = fitFence(fence, [...entry.still, ...inside]);
+    if (r.x !== fence.x || r.y !== fence.y || r.width !== fence.width || r.height !== fence.height) rects[entry.fenceId] = r;
   }
   if (Object.keys(rects).length) t.placeCards({}, rects);
 }
 
 export function endLiveFit() {
   live = [];
+  motion = null;
   liveIds = new Set();
 }

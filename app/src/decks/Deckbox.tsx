@@ -1,50 +1,48 @@
-// A saved deck drawn as a deckbox: a 3D box in the deck's colors, with the
-// cover card's art in a window on the front and the deck's name below it.
+// A saved deck drawn as a chunky, rounded deck box (a "boulder" style case)
+// in the deck's colors, with the cover card standing in front of it like a
+// little display. The deck's name and size sit under the box.
 import type { CSSProperties } from 'react';
 import { useCachedImage } from '../cards/imageCache';
 import type { DeckEntry } from './decksStore';
 import styles from './Deckbox.module.css';
 
-/** Box colors per color of mana: [main, darker edge]. */
+/** Box plastic per color of mana: [face, shadow side]. */
 const SHADES: Record<string, [string, string]> = {
-  W: ['#e9e0c4', '#b9ad8a'],
-  U: ['#2f6db5', '#1d4a80'],
-  B: ['#3a3440', '#1f1b24'],
-  R: ['#c2412f', '#86271b'],
-  G: ['#2f7f4f', '#1c5532'],
+  W: ['#e8dfc4', '#b5a985'],
+  U: ['#2f6db5', '#1c477c'],
+  B: ['#3b3542', '#1d1a22'],
+  R: ['#c4402e', '#82261a'],
+  G: ['#2f7f4f', '#1b5131'],
 };
-const COLORLESS: [string, string] = ['#8d929b', '#5f646c'];
+const COLORLESS: [string, string] = ['#8f949c', '#5d626a'];
 
-/** The box's paint: one color, or bands of each of the deck's colors. */
-function paint(colors: string[]): { front: string; side: string; top: string; ink: string } {
+/** The plastic: one color, or the deck's colors blended across the box. */
+function paint(colors: string[]): { face: string; side: string; lid: string } {
   const shades = colors.length ? colors.map((c) => SHADES[c] ?? COLORLESS) : [COLORLESS];
-  const bands = (i: 0 | 1, angle: string) =>
-    shades.length === 1
-      ? shades[0][i]
-      : `linear-gradient(${angle}, ${shades.map((s, k) => `${s[i]} ${Math.max(0, (k / shades.length) * 100 + 6)}% ${Math.min(100, ((k + 1) / shades.length) * 100 - 6)}%`).join(', ')})`;
-  const light = colors.length === 1 && colors[0] === 'W';
-  return { front: bands(0, '90deg'), side: bands(1, '180deg'), top: bands(1, '90deg'), ink: light ? '#2b2620' : '#f6f2ea' };
+  const blend = (i: 0 | 1, angle: string) =>
+    shades.length === 1 ? shades[0][i] : `linear-gradient(${angle}, ${shades.map((s, k) => `${s[i]} ${(k / (shades.length - 1)) * 100}%`).join(', ')})`;
+  return { face: blend(0, '100deg'), side: blend(1, '180deg'), lid: blend(1, '100deg') };
 }
 
 export function Deckbox({ deck, open, onOpen, onDelete }: { deck: DeckEntry; open: boolean; onOpen: () => void; onDelete: () => void }) {
-  const art = useCachedImage(deck.cover?.imageKey);
+  const cover = useCachedImage(deck.cover?.imageKey);
   const p = paint(deck.colors);
-  const vars = { '--front': p.front, '--side': p.side, '--top': p.top, '--ink': p.ink } as CSSProperties;
+  const vars = { '--face': p.face, '--side': p.side, '--lid': p.lid } as CSSProperties;
   return (
     <div className={styles.slot} data-open={open || undefined}>
       <button className={styles.hit} onClick={onOpen} aria-label={`Open ${deck.name}`} title={open ? `${deck.name} (on the table)` : `Open ${deck.name}`}>
-        <div className={styles.box} style={vars}>
-          <div className={styles.top} />
-          <div className={styles.side} />
-          <div className={styles.front}>
-            <div className={styles.window}>{art ? <img src={art} alt="" draggable={false} /> : <span>{deck.cover?.name ?? ''}</span>}</div>
-            <div className={styles.lid} />
-            <div className={styles.label}>
-              <span className={styles.name}>{deck.name}</span>
-              <span className={styles.meta}>{deck.cardCount} cards</span>
+        <div className={styles.stage} style={vars}>
+          <div className={styles.box}>
+            <div className={styles.top} />
+            <div className={styles.side} />
+            <div className={styles.front}>
+              <div className={styles.lid} />
             </div>
           </div>
+          {cover && <img className={styles.card} src={cover} alt="" draggable={false} />}
         </div>
+        <span className={styles.name}>{deck.name}</span>
+        <span className={styles.meta}>{deck.cardCount} cards</span>
       </button>
       <button className={styles.remove} aria-label={`Delete ${deck.name}`} title="Delete from library" onClick={onDelete}>
         ×
