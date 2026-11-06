@@ -28,7 +28,7 @@ import { useFenceUi } from '../fences/uiStore';
 import { endLiveFit, liveFit, settleFences, startLiveFit } from '../fences/actions';
 import { useCardMenu } from './cardMenuStore';
 import { useLocalCards } from '../local/localCards';
-import { panelDragIds } from './dragState';
+import { panelDragIds, panelDragPose } from './dragState';
 import { usePeek } from './peekStore';
 import { openLocalView } from '../local/openView';
 import { useDeckCheck } from '../formats/deckCheckStore';
@@ -188,9 +188,47 @@ const THROW_MIN_SPEED = 0.7;
 /** A finger needs a firmer flick to throw, so a quick drag doesn't send cards sliding. */
 const TOUCH_THROW_MIN_SPEED = 1.6;
 const THROW_MAX_DISTANCE = 1400;
-/** How much a picked-up card grows. */
+/** How much a picked-up card grows, and how far it rises (table px). */
 const LIFT_SCALE = 0.04;
+const LIFT_RISE = 10;
+/** Below zero, lift is a card pressing into the table as it lands: it shrinks this much per unit. */
+const PRESS_SCALE = 0.12;
+/** A card pulled out of a side panel starts this "low" (smaller), so it pops up off the panel. */
+const PANEL_POP = -2;
+/** Sway while moving: radians of tilt per screen px/ms of sideways speed, and the most it tilts. */
+const TILT_PER_SPEED = 0.08;
+const TILT_MAX = 0.14;
 const easeOut = (t: number) => 1 - (1 - t) ** 3;
+/** Size of a card at a given lift: grown when raised, pressed smaller while landing or popping out of a panel. */
+const liftScale = (l: number) => (l >= 0 ? 1 + LIFT_SCALE * l : 1 + PRESS_SCALE * Math.max(-1, l) - (l < -1 ? 0.06 * (-1 - l) : 0));
+/** Users who ask the OS for less motion get no sway and no bounce. */
+const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+/**
+ * A damped spring, stepped per frame. `freq` is the natural frequency (rad per
+ * ms) and `damping` the damping ratio: under 1 overshoots and settles, which
+ * gives pickups a little pop and drops a little press into the table.
+ */
+interface Spring {
+  value: number;
+  velocity: number;
+  target: number;
+}
+function stepSpring(s: Spring, dt: number, freq: number, damping: number) {
+  // Small sub-steps keep it stable when a frame runs long.
+  for (let left = dt; left > 0; left -= 8) {
+    const h = Math.min(8, left);
+    const accel = freq * freq * (s.target - s.value) - 2 * damping * freq * s.velocity;
+    s.velocity += accel * h;
+    s.value += s.velocity * h;
+  }
+}
+const settled = (s: Spring) => Math.abs(s.target - s.value) < 0.002 && Math.abs(s.velocity) < 0.0002;
+/** Lift: quick, with a visible overshoot. Tilt: a softer sway. */
+const LIFT_FREQ = (2 * Math.PI) / 260;
+const LIFT_DAMPING = 0.45;
+const TILT_FREQ = (2 * Math.PI) / 340;
+const TILT_DAMPING = 0.5;
 
 export class TableScene {
   private world = new Container();
@@ -217,7 +255,11 @@ export class TableScene {
   private base = new Map<string, { x: number; y: number }>();
   private targets = new Map<string, { x: number; y: number }>();
   private tweens = new Map<string, Tween>();
-  private lift = new Map<string, { value: number; target: number }>();
+  private lift = new Map<string, Spring>();
+  /** Sway of a moving card (radians), and its smoothed sideways speed (screen px per ms). */
+  private tilt = new Map<string, Spring & { speed: number; lastX: number }>();
+  /** The card's own rotation from the store; tilt is drawn on top of it. */
+  private rotations = new Map<string, number>();
   /** Glide time for the next store update (a throw sets a longer one). */
   private glideMs: number | null = null;
   /** Recent pointer positions while dragging cards, to measure a throw. */
@@ -402,6 +444,8 @@ export class TableScene {
         this.targets.delete(id);
         this.tweens.delete(id);
         this.lift.delete(id);
+        this.tilt.delete(id);
+        this.rotations.delete(id);
         this.cardTagKeys.delete(id);
         this.cardIssueKeys.delete(id);
         this.cardFaceKeys.delete(id);
@@ -426,8 +470,14 @@ export class TableScene {
         this.cardFaceKeys.set(card.id, faceKey);
         this.cardLayer.addChild(view);
       }
+      this.rotations.set(card.id, card.rotation);
+      // Pulled out of a side panel: pop up off the panel and stay lifted while it's carried.
+      if (panelDragIds.has(card.id) && this.lift.get(card.id)?.target !== 1) {
+        const existing = this.lift.get(card.id);
+        if (existing) existing.target = 1;
+        else this.lift.set(card.id, { value: reducedMotion() ? 0 : PANEL_POP, velocity: 0, target: 1 });
+      }
       this.moveTo(card.id, view, card.x, card.y, fresh);
-      view.rotation = card.rotation;
       view.alpha = 1;
       view.cursor = pencil ? 'crosshair' : 'grab';
       const down = faceDown.has(card.id);
@@ -537,26 +587,51 @@ export class TableScene {
     this.render(id, view);
   }
 
-  /** Draw a card at its base spot, grown and shadowed by how lifted it is (growing from its center). */
+  /**
+   * Draw a card at its base spot: grown, raised and shadowed by how lifted it
+   * is (pressed slightly smaller while it lands), and tilted by its sway. Scale
+   * and tilt both turn about the card's center.
+   */
   private render(id: string, view: Container) {
     const b = this.base.get(id);
     if (!b) return;
     const l = this.lift.get(id)?.value ?? 0;
-    const scale = 1 + LIFT_SCALE * l;
+    const scale = liftScale(l);
+    const rotation = (this.rotations.get(id) ?? 0) + (this.tilt.get(id)?.value ?? 0);
     view.scale.set(scale);
-    view.position.set(b.x - (CARD_WIDTH * (scale - 1)) / 2, b.y - (CARD_HEIGHT * (scale - 1)) / 2 - 6 * l);
+    view.rotation = rotation;
+    // Keep the center where it belongs: position = center - rotated, scaled half size.
+    const hx = (CARD_WIDTH / 2) * scale;
+    const hy = (CARD_HEIGHT / 2) * scale;
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
+    view.position.set(b.x + CARD_WIDTH / 2 - (hx * cos - hy * sin), b.y + CARD_HEIGHT / 2 - (hx * sin + hy * cos) - LIFT_RISE * Math.max(0, l));
     const shadow = view.getChildByLabel('shadow');
-    if (shadow) shadow.alpha = l;
+    if (shadow) shadow.alpha = Math.max(0, Math.min(1, l));
   }
 
   private setLift(ids: string[], target: number) {
-    for (const id of ids) this.lift.set(id, { value: this.lift.get(id)?.value ?? 0, target });
+    for (const id of ids) {
+      const s = this.lift.get(id);
+      if (s) s.target = target;
+      else if (target !== 0) this.lift.set(id, { value: 0, velocity: 0, target });
+    }
+  }
+
+  /** Cards being carried right now: by the pointer on the table, or out of a side panel. */
+  private carried(): Set<string> {
+    const ids = new Set(panelDragIds);
+    if (this.drag?.kind === 'cards') for (const id of this.drag.ids) ids.add(id);
+    return ids;
   }
 
   private tick = () => {
-    if (!this.tweens.size && !this.lift.size) return;
+    if (!this.tweens.size && !this.lift.size && !this.tilt.size) return;
     const now = performance.now();
+    const dt = Math.min(64, this.app.ticker.deltaMS);
     const touched = new Set<string>();
+    const carried = this.carried();
+    const calm = reducedMotion();
     for (const [id, tw] of this.tweens) {
       const t = Math.min(1, (now - tw.start) / tw.duration);
       const k = easeOut(t);
@@ -564,14 +639,50 @@ export class TableScene {
       if (t >= 1) this.tweens.delete(id);
       touched.add(id);
     }
-    const step = Math.min(1, this.app.ticker.deltaMS / 90);
     for (const [id, l] of this.lift) {
-      l.value += (l.target - l.value) * step;
-      if (Math.abs(l.target - l.value) < 0.01) {
+      // Let go (or put back): settle down onto the table.
+      if (l.target !== 0 && !carried.has(id)) l.target = 0;
+      if (calm) {
+        l.value += (l.target - l.value) * Math.min(1, dt / 90);
+        l.velocity = 0;
+      } else stepSpring(l, dt, LIFT_FREQ, LIFT_DAMPING);
+      if (settled(l) || (calm && Math.abs(l.target - l.value) < 0.01)) {
         l.value = l.target;
+        l.velocity = 0;
         if (l.target === 0) this.lift.delete(id);
       }
       touched.add(id);
+    }
+    // Sway: a carried card leans the way it's moving, like a real card held by its middle, and swings back upright when it stops.
+    const zoom = useTable.getState().camera.zoom;
+    if (!calm) {
+      for (const id of carried) {
+        const b = this.base.get(id);
+        if (!b) continue;
+        let t = this.tilt.get(id);
+        if (!t) this.tilt.set(id, (t = { value: 0, velocity: 0, target: 0, speed: 0, lastX: b.x }));
+        const speed = ((b.x - t.lastX) * zoom) / Math.max(1, dt);
+        t.lastX = b.x;
+        t.speed += (speed - t.speed) * 0.35;
+        t.target = Math.max(-TILT_MAX, Math.min(TILT_MAX, t.speed * TILT_PER_SPEED));
+      }
+    }
+    for (const [id, t] of this.tilt) {
+      if (!carried.has(id) || calm) {
+        t.target = 0;
+        t.speed = 0;
+      }
+      stepSpring(t, dt, TILT_FREQ, TILT_DAMPING);
+      if (!carried.has(id) && settled(t)) this.tilt.delete(id);
+      touched.add(id);
+    }
+    // The panel's cover image follows the lead card's pose (board/cardDrag.ts).
+    const lead = [...panelDragIds].pop();
+    if (lead) {
+      const l = this.lift.get(lead)?.value ?? 0;
+      panelDragPose.scale = liftScale(l);
+      panelDragPose.rise = LIFT_RISE * Math.max(0, l);
+      panelDragPose.tilt = this.tilt.get(lead)?.value ?? 0;
     }
     for (const id of touched) {
       const view = this.cardViews.get(id);

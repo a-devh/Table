@@ -3,7 +3,7 @@
 import { createPortal } from 'react-dom';
 import { isTouch } from '../app/device';
 import { useEffect, useState } from 'react';
-import { useSettings, type Accent, type ThemeChoice } from './settingsStore';
+import { useSettings, type Accent, type GridPattern, type Palette, type ThemeChoice } from './settingsStore';
 import { useFormats } from '../formats/formatsStore';
 import { AddFormatDialog } from '../formats/AddFormatDialog';
 import { useTable } from '../model/store';
@@ -19,6 +19,16 @@ const THEMES: { value: ThemeChoice; label: string }[] = [
   { value: 'light', label: 'Light' },
 ];
 const ACCENTS: Accent[] = ['default', 'amber', 'green', 'violet', 'rose'];
+const PALETTES: { value: Palette; label: string }[] = [
+  { value: 'table', label: 'Table' },
+  { value: 'material', label: 'Material' },
+];
+const GRID_PATTERNS: { value: GridPattern; label: string }[] = [
+  { value: 'dots', label: 'Dots' },
+  { value: 'fine', label: 'Fine dots' },
+  { value: 'lines', label: 'Lines' },
+  { value: 'none', label: 'None' },
+];
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const math = useSettings((s) => s.manaMath);
@@ -31,6 +41,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const accent = useSettings((s) => s.accent);
   const setTheme = useSettings((s) => s.setTheme);
   const setAccent = useSettings((s) => s.setAccent);
+  const palette = useSettings((s) => s.palette);
+  const setPalette = useSettings((s) => s.setPalette);
+  const gridPattern = useSettings((s) => s.gridPattern);
+  const setGridPattern = useSettings((s) => s.setGridPattern);
   const columns = useSettings((s) => s.searchLayout.columns);
   const setSearchLayout = useSettings((s) => s.setSearchLayout);
 
@@ -73,6 +87,19 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               ))}
             </select>
           </label>
+          <label className={styles.row}>
+            <span>
+              Colors
+              <small>Material uses Material Design 3's color palette.</small>
+            </span>
+            <select className={ui.button} value={palette} onChange={(e) => setPalette(e.target.value as Palette)}>
+              {PALETTES.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className={styles.row}>
             <span>Accent color</span>
             <span role="radiogroup" aria-label="Accent color" className={styles.swatches}>
@@ -100,6 +127,19 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               <small>Dropped cards line up on the dotted grid. {isTouch() ? 'Turn it off with the grid button to place freely.' : 'Hold Alt while dragging to place freely.'}</small>
             </span>
             <input type="checkbox" checked={gridSnap} onChange={(e) => setGridSnap(e.target.checked)} />
+          </label>
+          <label className={styles.row}>
+            <span>
+              Grid
+              <small>How the snap grid is drawn on the table.</small>
+            </span>
+            <select className={ui.button} value={gridPattern} onChange={(e) => setGridPattern(e.target.value as GridPattern)}>
+              {GRID_PATTERNS.map((g) => (
+                <option key={g.value} value={g.value}>
+                  {g.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label className={styles.row}>
             <span>

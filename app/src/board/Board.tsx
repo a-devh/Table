@@ -11,9 +11,26 @@ import { CardMenu } from './CardMenu';
 import { MergedPeek } from './MergedPeek';
 import { useDeleteKey } from './cardMenuStore';
 import { useClipboardKeys } from './clipboard';
+import { useSettings, type GridPattern } from '../settings/settingsStore';
+
+/**
+ * The snap grid's look (Settings > Table). Each tile is one grid cell with its
+ * grid point in the middle; TableScene sizes and shifts the tiles with the camera.
+ */
+const LINE = 'color-mix(in srgb, var(--grid-dot) 55%, transparent)';
+const GRID_IMAGES: Record<GridPattern, string> = {
+  dots: 'radial-gradient(circle, var(--grid-dot) 1.3px, transparent 1.8px)',
+  fine: 'radial-gradient(circle, var(--grid-dot) 0.7px, transparent 1.2px)',
+  lines: [
+    `linear-gradient(to bottom, transparent calc(50% - 0.5px), ${LINE} calc(50% - 0.5px), ${LINE} calc(50% + 0.5px), transparent calc(50% + 0.5px))`,
+    `linear-gradient(to right, transparent calc(50% - 0.5px), ${LINE} calc(50% - 0.5px), ${LINE} calc(50% + 0.5px), transparent calc(50% + 0.5px))`,
+  ].join(', '),
+  none: 'none',
+};
 
 export function Board() {
   const hostRef = useRef<HTMLDivElement>(null);
+  const gridPattern = useSettings((s) => s.gridPattern);
   useDeleteKey();
   useClipboardKeys();
 
@@ -90,7 +107,7 @@ export function Board() {
           position: 'absolute',
           inset: 0,
           // Size and position follow the camera (set by TableScene).
-          backgroundImage: 'radial-gradient(circle, var(--grid-dot) 1.8px, transparent 2.3px)',
+          backgroundImage: GRID_IMAGES[gridPattern],
         }}
       />
       <CardMenu />
