@@ -24,7 +24,9 @@ const items: { name: ModuleName; label: string; Icon: () => React.JSX.Element }[
 export function NavigationBar({ open, onToggle, onClose }: Props) {
   const phone = usePhone();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const theme = resolvedTheme(useSettings((s) => s.theme));
+  const choice = useSettings((s) => s.theme);
+  useSettings((s) => s.palette); // a preset theme decides dark or light itself
+  const theme = resolvedTheme(choice);
   return (
     <nav aria-label="Panels" className={styles.rail}>
       {/* Phone: panels cover the table, so the table gets a tab of its own. */}
@@ -45,12 +47,16 @@ export function NavigationBar({ open, onToggle, onClose }: Props) {
         </button>
       ))}
       <div className={styles.spacer} />
-      {/* Quick dark / light switch; accent colors and "follow system" are in Settings. */}
+      {/* Quick dark / light switch (back to Table's own colors if a preset theme is on); presets, accents and "follow system" are in Settings. */}
       <button
         aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
         title={theme === 'dark' ? 'Light theme' : 'Dark theme'}
         className={styles.item}
-        onClick={() => useSettings.getState().setTheme(theme === 'dark' ? 'light' : 'dark')}
+        onClick={() => {
+          const s = useSettings.getState();
+          s.setPalette('table');
+          s.setTheme(theme === 'dark' ? 'light' : 'dark');
+        }}
       >
         {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
       </button>

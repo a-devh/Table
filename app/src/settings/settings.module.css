@@ -79,6 +79,3 @@
   color: #e5484d;
   border-color: #e5484d;
 }
-/* Material colors: the default swatch is Material's purple primary. */
-:global(:root[data-palette='material']) .swatch[data-swatch='default'] { background: #d0bcff; }
-:global(:root[data-palette='material'][data-theme='light']) .swatch[data-swatch='default'] { background: #6750a4; }
