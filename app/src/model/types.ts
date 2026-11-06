@@ -20,6 +20,12 @@ export interface CardData {
   producedMana?: string[];
   /** common / uncommon / rare / mythic (or special, bonus). Missing on older saves. */
   rarity?: string;
+  /**
+   * The other side of a double-faced card (transform, modal DFC, reversible).
+   * Name, type and rules data above are the front's; this is only what the back
+   * looks like. Missing on single-faced cards and older saves.
+   */
+  back?: { name: string; typeLine: string; imageKey: string };
 }
 
 /** One physical copy: a specific printing of a card. */
@@ -45,6 +51,8 @@ export interface TableCard extends Card {
   x: number;
   y: number;
   rotation: number;
+  /** Showing its back face (double-faced cards only). Missing = front. */
+  flipped?: boolean;
 }
 
 export type FenceView = 'custom' | 'cmc' | 'type' | 'color' | 'rarity' | 'set' | 'tags';

@@ -22,7 +22,7 @@ const BASE_H = 134;
 /** Most tag pills drawn on one card. */
 const MAX_TAGS = 5;
 import type { Fence, TableCard, TableState } from '../model/types';
-import { pileTop } from '../model/card';
+import { pileTop, shownImage } from '../model/card';
 import { watchLongPress } from '../app/device';
 import { useFenceUi } from '../fences/uiStore';
 import { endLiveFit, liveFit, settleFences, startLiveFit } from '../fences/actions';
@@ -229,6 +229,8 @@ const LIFT_FREQ = (2 * Math.PI) / 260;
 const LIFT_DAMPING = 0.45;
 const TILT_FREQ = (2 * Math.PI) / 340;
 const TILT_DAMPING = 0.5;
+/** Turning a double-faced card over: the new side opens out from edge-on over this long. */
+const FLIP_MS = 200;
 
 export class TableScene {
   private world = new Container();
@@ -260,6 +262,10 @@ export class TableScene {
   private tilt = new Map<string, Spring & { speed: number; lastX: number }>();
   /** The card's own rotation from the store; tilt is drawn on top of it. */
   private rotations = new Map<string, number>();
+  /** Cards turning over (double-faced): when the turn started. */
+  private flips = new Map<string, number>();
+  /** Which side each card was last drawn with, to notice a flip. */
+  private flippedSides = new Map<string, boolean>();
   /** Glide time for the next store update (a throw sets a longer one). */
   private glideMs: number | null = null;
   /** Recent pointer positions while dragging cards, to measure a throw. */
@@ -446,6 +452,8 @@ export class TableScene {
         this.lift.delete(id);
         this.tilt.delete(id);
         this.rotations.delete(id);
+        this.flips.delete(id);
+        this.flippedSides.delete(id);
         this.cardTagKeys.delete(id);
         this.cardIssueKeys.delete(id);
         this.cardFaceKeys.delete(id);
@@ -454,8 +462,12 @@ export class TableScene {
     const issues = useDeckCheck.getState().cardIssues;
     for (const card of Object.values(state.cards)) {
       let view = this.cardViews.get(card.id);
-      // A new printing (Select art) or a merge/split redraws the card.
-      const faceKey = `${pileTop(card)?.scryfallId ?? 'back'}|${card.copies.length}|${useSettings.getState().tablePrices}`;
+      // A new printing (Select art), a merge/split or turning it over redraws the card.
+      const flipped = !!card.flipped;
+      const faceKey = `${pileTop(card)?.scryfallId ?? 'back'}|${flipped}|${card.copies.length}|${useSettings.getState().tablePrices}`;
+      // Turned over: the other side opens out from edge-on.
+      if (this.flippedSides.has(card.id) && this.flippedSides.get(card.id) !== flipped && !reducedMotion()) this.flips.set(card.id, performance.now());
+      this.flippedSides.set(card.id, flipped);
       if (view && this.cardFaceKeys.get(card.id) !== faceKey) {
         view.destroy({ children: true });
         view = undefined;
@@ -598,10 +610,12 @@ export class TableScene {
     const l = this.lift.get(id)?.value ?? 0;
     const scale = liftScale(l);
     const rotation = (this.rotations.get(id) ?? 0) + (this.tilt.get(id)?.value ?? 0);
-    view.scale.set(scale);
+    const flip = this.flips.get(id);
+    const turn = flip === undefined ? 1 : Math.max(0.02, easeOut(Math.min(1, (performance.now() - flip) / FLIP_MS)));
+    view.scale.set(scale * turn, scale);
     view.rotation = rotation;
     // Keep the center where it belongs: position = center - rotated, scaled half size.
-    const hx = (CARD_WIDTH / 2) * scale;
+    const hx = (CARD_WIDTH / 2) * scale * turn;
     const hy = (CARD_HEIGHT / 2) * scale;
     const cos = Math.cos(rotation);
     const sin = Math.sin(rotation);
@@ -626,7 +640,7 @@ export class TableScene {
   }
 
   private tick = () => {
-    if (!this.tweens.size && !this.lift.size && !this.tilt.size) return;
+    if (!this.tweens.size && !this.lift.size && !this.tilt.size && !this.flips.size) return;
     const now = performance.now();
     const dt = Math.min(64, this.app.ticker.deltaMS);
     const touched = new Set<string>();
@@ -676,6 +690,10 @@ export class TableScene {
       if (!carried.has(id) && settled(t)) this.tilt.delete(id);
       touched.add(id);
     }
+    for (const [id, start] of this.flips) {
+      if (now - start >= FLIP_MS) this.flips.delete(id);
+      touched.add(id);
+    }
     // The panel's cover image follows the lead card's pose (board/cardDrag.ts).
     const lead = [...panelDragIds].pop();
     if (lead) {
@@ -707,7 +725,9 @@ export class TableScene {
     const c = cardColors(card);
     // A merged pile shows its top printing (see pileTop); a mixed pile shows the back.
     const top = pileTop(card);
-    const data = top ?? card.copies[0].data;
+    const front = top ?? card.copies[0].data;
+    // Turned over: draw the back face (name and type for the placeholder, and its image).
+    const data = card.flipped && front.back ? { ...front, name: front.back.name, typeLine: front.back.typeLine } : front;
     const view = new Container();
     view.eventMode = 'static';
     view.cursor = 'grab';
@@ -782,7 +802,13 @@ export class TableScene {
       tag.position.set(CARD_WIDTH - pill.width - 22, 62);
       view.addChild(tag);
     }
-    if (top?.imageKey) this.loadImage(view, top.imageKey);
+    if (top) {
+      const image = shownImage(top, card.flipped);
+      if (image) this.loadImage(view, image);
+      // Fetch the other side now so turning it over is instant.
+      const other = card.flipped ? top.imageKey : top.back?.imageKey;
+      if (other) cardTexture(other).catch(() => undefined);
+    }
     view.on('pointerdown', (e: FederatedPointerEvent) => this.onCardDown(e, card.id));
     return view;
   }

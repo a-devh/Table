@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTable } from '../model/store';
 import type { Card, TableCard } from '../model/types';
-import { faceOf, nameOf, printingOf, swapCard } from '../model/card';
+import { canFlip, faceOf, nameOf, printingOf, swapCard } from '../model/card';
 import { STEP } from '../fences/layout';
 import { settleFences } from '../fences/actions';
 import { addCopyOf, addToTable, copiesOnTable, removeOneFromTable } from './addToTable';
@@ -153,6 +153,7 @@ function MenuItems({ target, close }: { target: MenuTarget; close: () => void })
       {onTable && merged && item(`Split into ${first.copies.length}`, () => (t.splitCard(first.id, STEP), settleFences()))}
 
       <div className={styles.divider} />
+      {onTable && cards.some(canFlip) && item('Turn over', () => t.flipCards(cards.map((c) => c.id)), { hint: 'F' })}
       {n === 1 &&
         item('Select art…', () =>
           useArtPicker.getState().open(name, faceOf(first).scryfallId, (data) => {

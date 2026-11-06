@@ -129,7 +129,10 @@ interface RawList<T> {
 
 export function toCardData(raw: RawCard): CardData {
   const front = raw.card_faces?.[0];
+  // Double-faced cards have an image per face and none on the card itself.
+  const backFace = !raw.image_uris && raw.card_faces?.[1]?.image_uris ? raw.card_faces[1] : undefined;
   return {
+    back: backFace && { name: backFace.name, typeLine: backFace.type_line ?? '', imageKey: backFace.image_uris!.normal },
     scryfallId: raw.id,
     oracleId: raw.oracle_id ?? raw.id,
     name: raw.name,

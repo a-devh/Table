@@ -11,7 +11,8 @@ import { FENCE_PAD } from '../fences/layout';
 
 interface Actions {
   /** Put a copy of a card object on the table (the original stays where it was). */
-  addCard: (card: Card, x: number, y: number) => string;
+  /** Put a copy of a card object on the table (optionally turned over, for a double-faced card). */
+  addCard: (card: Card, x: number, y: number, flipped?: boolean) => string;
   moveCards: (ids: string[], dx: number, dy: number) => void;
   removeCards: (ids: string[]) => void;
   /** Add one more copy (same printing) to a merged card. */
@@ -31,6 +32,8 @@ interface Actions {
   /** Change the printing (art) of every copy in a card. */
   /** Trade a card for a new card object of another printing, in the same place (same copies count, tags, position). */
   swapPrinting: (cardId: string, data: CardData) => void;
+  /** Turn double-faced cards over (single-faced ones are left alone). */
+  flipCards: (ids: string[]) => void;
   /** Draw a fence; with `parentId` it's a group inside that fence. */
   drawFence: (x: number, y: number, width: number, height: number, section: string, name: string, parentId?: string) => string;
   moveFence: (fenceId: string, dx: number, dy: number, cardIds: string[]) => void;
@@ -99,8 +102,8 @@ export const initialState: TableState = {
 export const useTable = create<TableState & Actions>()((set) => ({
   ...initialState,
 
-  addCard: (card, x, y) => {
-    const placed = { ...cloneCard(card), x, y, rotation: 0 };
+  addCard: (card, x, y, flipped) => {
+    const placed: TableCard = { ...cloneCard(card), x, y, rotation: 0, ...(flipped && card.copies[0].data.back ? { flipped: true } : {}) };
     set((s) => ({ cards: { ...s.cards, [placed.id]: placed } }));
     return placed.id;
   },
@@ -227,6 +230,19 @@ export const useTable = create<TableState & Actions>()((set) => ({
       }
       const selection = s.selection.map((id) => (id === cardId ? swapped.id : id));
       return { cards, fences, selection };
+    }),
+
+  flipCards: (ids) =>
+    set((s) => {
+      const cards = { ...s.cards };
+      let changed = false;
+      for (const id of ids) {
+        const c = cards[id];
+        if (!c?.copies[0].data.back) continue;
+        cards[id] = { ...c, flipped: !c.flipped };
+        changed = true;
+      }
+      return changed ? { cards } : {};
     }),
 
   drawFence: (x, y, width, height, section, name, parentId) => {

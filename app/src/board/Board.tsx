@@ -9,7 +9,7 @@ import { TAG_DRAG_TYPE } from './dragTypes';
 import { settleFences } from '../fences/actions';
 import { CardMenu } from './CardMenu';
 import { MergedPeek } from './MergedPeek';
-import { useDeleteKey } from './cardMenuStore';
+import { useDeleteKey, useFlipKey } from './cardMenuStore';
 import { useClipboardKeys } from './clipboard';
 import { useSettings, type GridPattern } from '../settings/settingsStore';
 
@@ -32,6 +32,7 @@ export function Board() {
   const hostRef = useRef<HTMLDivElement>(null);
   const gridPattern = useSettings((s) => s.gridPattern);
   useDeleteKey();
+  useFlipKey();
   useClipboardKeys();
 
   useEffect(() => {

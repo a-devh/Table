@@ -3,7 +3,8 @@
 // the card can do in that place. Cards in a panel never move around: dragging
 // one puts a copy of it on the table.
 import type { Card } from '../model/types';
-import { faceOf, nameOf } from '../model/card';
+import { useState } from 'react';
+import { canFlip, faceOf, nameOf, shownImage } from '../model/card';
 import { startCardDrag } from '../board/cardDrag';
 import { addToTable, copiesOnTable, removeOneFromTable } from '../board/addToTable';
 import { useTable } from '../model/store';
@@ -11,7 +12,7 @@ import type { CardStatus } from '../rules/legality';
 import { useCardMenu } from '../board/cardMenuStore';
 import { priceLabel } from '../rules/prices';
 import { useLocalCards } from '../local/localCards';
-import { BoxIcon, HeartIcon, StarIcon } from '../app/icons';
+import { BoxIcon, FlipIcon, HeartIcon, StarIcon } from '../app/icons';
 import { useCachedImage } from './imageCache';
 import { isTouch, watchLongPress } from '../app/device';
 import styles from './CardTile.module.css';
@@ -52,11 +53,15 @@ interface Props {
 
 export function CardTile({ card, can, status = null, formatLabel, picked, onPick, dragGroup, onDragOut, onChange, width, corner }: Props) {
   const face = faceOf(card);
-  const name = nameOf(card);
+  // Double-faced cards can be turned over right here; pulled out, they land the way they show.
+  const [flipped, setFlipped] = useState(false);
+  const [turned, setTurned] = useState(false);
+  const shown = shownImage(face, flipped);
+  const name = flipped && face.back ? face.back.name : nameOf(card);
   const onTable = useTable((t) => (can.step ? copiesOnTable(t.cards, face.scryfallId) : 0));
   // Scryfall's small image for small tiles: the browser shrinking the big one looks grainy.
-  const small = face.imageKey.includes('/normal/') && width * (window.devicePixelRatio || 1) <= 160;
-  const image = small ? face.imageKey.replace('/normal/', '/small/') : face.imageKey;
+  const small = shown.includes('/normal/') && width * (window.devicePixelRatio || 1) <= 160;
+  const image = small ? shown.replace('/normal/', '/small/') : shown;
   const src = useCachedImage(image || undefined);
   const price = can.caption ? priceLabel(face) : null;
 
@@ -96,7 +101,7 @@ export function CardTile({ card, can, status = null, formatLabel, picked, onPick
           const dy = Math.abs(ev.clientY - y0);
           if (touch ? dx < 12 || dx < dy : Math.hypot(dx, dy) < 4) return;
           stop();
-          startCardDrag(cards, ev.clientX, ev.clientY);
+          startCardDrag(cards, ev.clientX, ev.clientY, flipped);
           onDragOut?.();
         };
         function stop() {
@@ -113,13 +118,28 @@ export function CardTile({ card, can, status = null, formatLabel, picked, onPick
       <div className={styles.card}>
         {corner && <span className={styles.corner}>{corner}</span>}
         {can.local && <LocalButtons card={card} />}
+        {canFlip(card) && (
+          <button
+            className={styles.flip}
+            aria-label={flipped ? 'Show front face' : 'Show back face'}
+            title="Turn over"
+            aria-pressed={flipped}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => {
+              setFlipped((f) => !f);
+              setTurned(true);
+            }}
+          >
+            <FlipIcon />
+          </button>
+        )}
         {status && (
           <span className={styles.badge} data-status={status}>
             {STATUS_LABEL[status]}
           </span>
         )}
         {image ? (
-          src && <img src={src} alt={name} draggable={false} />
+          src && <img key={src} className={turned ? styles.turned : undefined} src={src} alt={name} draggable={false} />
         ) : (
           <span className={styles.noImage}>{name}</span>
         )}

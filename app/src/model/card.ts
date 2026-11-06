@@ -18,6 +18,13 @@ export function cloneCard(card: Card): Card {
 export const faceOf = (card: Card): CardData => card.copies[0].data;
 export const nameOf = (card: Card): string => faceOf(card).name;
 
+/** True when a card has a back face to flip to (double-faced cards). */
+export const canFlip = (card: Card): boolean => !!faceOf(card).back;
+
+/** The image showing for a printing: its back face when flipped (and it has one), else its front. */
+export const shownImage = (data: CardData, flipped: boolean | undefined): string =>
+  (flipped && data.back?.imageKey) || data.imageKey;
+
 /**
  * The printing shown on top of a merged pile: the last copy in it when every
  * copy has the same name, or null (show the Magic card back) when the pile
