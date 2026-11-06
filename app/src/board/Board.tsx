@@ -58,9 +58,13 @@ export function Board() {
         host.appendChild(app.canvas);
         scene = new TableScene(app, host);
       });
+    // Pixi only follows window resizes; the table also changes size when a side panel opens or closes.
+    const observer = new ResizeObserver(() => app.renderer && app.resize());
+    observer.observe(host);
 
     return () => {
       cancelled = true;
+      observer.disconnect();
       scene?.destroy();
       if (app.renderer) app.destroy(true, { children: true });
     };
