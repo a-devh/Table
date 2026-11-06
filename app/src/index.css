@@ -16,7 +16,7 @@
   --bubble-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   /* Scryfall set symbols are black SVGs. */
   --set-icon-filter: invert(0.9);
-  --grid-dot: #484c57;
+  --grid-dot: #363940;
   --fence-line: #5a5d66;
 }
 
@@ -34,9 +34,40 @@
   --on-accent: #ffffff;
   --bubble-shadow: 0 4px 16px rgba(60, 50, 30, 0.25);
   --set-icon-filter: none;
-  --grid-dot: #a99f8b;
+  --grid-dot: #c5bba8;
   --fence-line: #a89f8c;
 }
+
+/* Material colors (Settings > Appearance > Colors): Material Design 3's baseline
+   palette (neutral surfaces, purple primary). Accent choices still apply on top. */
+:root[data-palette='material'] {
+  --table-bg: #141218;
+  --rail: #0f0d13;
+  --line: #2b2930;
+  --panel: #1d1b20;
+  --panel-text: #e6e0e9;
+  --muted: #cac4d0;
+  --input: #141218;
+  --input-line: #49454f;
+  --bubble-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --grid-dot: #36343b;
+  --fence-line: #938f99;
+}
+:root[data-palette='material'][data-theme='light'] {
+  --table-bg: #f3edf7;
+  --rail: #fef7ff;
+  --line: #e6e0e9;
+  --panel: #fef7ff;
+  --panel-text: #1d1b20;
+  --muted: #49454f;
+  --input: #ffffff;
+  --input-line: #cac4d0;
+  --bubble-shadow: 0 4px 16px rgba(29, 27, 32, 0.18);
+  --grid-dot: #d7d0db;
+  --fence-line: #79747e;
+}
+:root[data-palette='material'][data-accent='default'] { --accent: #d0bcff; --on-accent: #381e72; }
+:root[data-palette='material'][data-theme='light'][data-accent='default'] { --accent: #6750a4; --on-accent: #ffffff; }
 
 /* Accent choices (Settings > Appearance), tuned for each theme. */
 :root[data-accent='amber'] { --accent: #e0a84a; }

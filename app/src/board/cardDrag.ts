@@ -8,7 +8,7 @@ import { CARD_HEIGHT, CARD_RADIUS, CARD_WIDTH } from '../model/derived';
 import type { Card } from '../model/types';
 import { faceOf } from '../model/card';
 import { endLiveFit, liveFit, settleFences, startLiveFit } from '../fences/actions';
-import { panelDragIds } from './dragState';
+import { panelDragIds, panelDragPose } from './dragState';
 import { STEP } from '../fences/layout';
 import { land, landingFor, useLandingPreview } from './snapping';
 import { PANEL_DRAG_END } from '../app/device';
@@ -27,17 +27,30 @@ export function startCardDrag(cards: Card[], clientX: number, clientY: number) {
   // Stepped like a fence column, the last card on top under the pointer.
   const n = cards.length;
   const ids = cards.map((c, i) => t.addCard(c, start.x - CARD_WIDTH / 2, start.y - CARD_HEIGHT / 2 - (n - 1 - i) * STEP));
+  // Marked as carried before the table next redraws, so they pop up off the panel.
+  for (const id of ids) panelDragIds.add(id);
   t.select(ids);
   const data = faceOf(cards[n - 1]);
 
   // The part of the card over the panel, drawn above everything.
+  // A window onto the panel area only (left of the table), so the card is cut
+  // off exactly at the table's edge however it's tilted.
+  const cover = document.createElement('div');
+  Object.assign(cover.style, {
+    position: 'fixed',
+    zIndex: '20',
+    pointerEvents: 'none',
+    left: '0',
+    top: '0',
+    width: `${Math.max(0, board.left)}px`,
+    height: '100vh',
+    overflow: 'hidden',
+  } satisfies Partial<CSSStyleDeclaration>);
   const ghost = document.createElement(data.imageKey ? 'img' : 'div');
   if (ghost instanceof HTMLImageElement) ghost.src = data.imageKey;
   else ghost.textContent = data.name;
   Object.assign(ghost.style, {
-    position: 'fixed',
-    zIndex: '20',
-    pointerEvents: 'none',
+    position: 'absolute',
     width: `${CARD_WIDTH * zoom}px`,
     height: `${CARD_HEIGHT * zoom}px`,
     borderRadius: `${CARD_RADIUS * zoom}px`,
@@ -45,13 +58,16 @@ export function startCardDrag(cards: Card[], clientX: number, clientY: number) {
     fontSize: '11px',
     padding: data.imageKey ? '0' : '6px',
     boxSizing: 'border-box',
+    transformOrigin: '50% 50%',
+    boxShadow: '0 10px 24px rgba(0, 0, 0, 0.35)',
   } satisfies Partial<CSSStyleDeclaration>);
   if (n > 1) {
     // How many cards are coming along.
     ghost.title = `${n} cards`;
     ghost.style.outline = '3px solid var(--accent)';
   }
-  document.body.appendChild(ghost);
+  cover.appendChild(ghost);
+  document.body.appendChild(cover);
   document.body.style.cursor = 'grabbing';
   // Phone: the panel sheet steps aside while the card is out (Modules.module.css).
   document.body.dataset.cardDrag = '';
@@ -64,12 +80,17 @@ export function startCardDrag(cards: Card[], clientX: number, clientY: number) {
     const top = cy - (CARD_HEIGHT * z) / 2;
     ghost.style.left = `${left}px`;
     ghost.style.top = `${top}px`;
-    // Show only what sticks out to the left of the table.
-    const hidden = Math.max(0, left + CARD_WIDTH * z - board.left);
-    ghost.style.clipPath = `inset(0 ${Math.min(hidden, CARD_WIDTH * z)}px 0 0)`;
   };
   place(clientX, clientY);
-  for (const id of ids) panelDragIds.add(id);
+  Object.assign(panelDragPose, { scale: 1, rise: 0, tilt: 0 });
+  // Match the table card's pop, lift and sway every frame (TableScene sets the pose).
+  let frame = 0;
+  const pose = () => {
+    const z = useTable.getState().camera.zoom;
+    ghost.style.transform = `translateY(${-panelDragPose.rise * z}px) rotate(${panelDragPose.tilt}rad) scale(${panelDragPose.scale})`;
+    frame = requestAnimationFrame(pose);
+  };
+  pose();
   startLiveFit(ids);
 
   const move = (e: PointerEvent) => {
@@ -88,7 +109,8 @@ export function startCardDrag(cards: Card[], clientX: number, clientY: number) {
     window.removeEventListener('pointerup', up);
     window.removeEventListener('keydown', key);
     window.removeEventListener('pointercancel', cancel);
-    ghost.remove();
+    cancelAnimationFrame(frame);
+    cover.remove();
     document.body.style.cursor = '';
     delete document.body.dataset.cardDrag;
     window.dispatchEvent(new Event(PANEL_DRAG_END));

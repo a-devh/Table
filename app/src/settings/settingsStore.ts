@@ -13,6 +13,10 @@ export interface SearchLayout {
 
 export type ThemeChoice = 'system' | 'dark' | 'light';
 export type Accent = 'default' | 'amber' | 'green' | 'violet' | 'rose';
+/** Table color family: the original Table colors, or Material Design 3's baseline palette. */
+export type Palette = 'table' | 'material';
+/** How the snap grid is drawn on the table. */
+export type GridPattern = 'dots' | 'fine' | 'lines' | 'none';
 
 interface Settings {
   /** Dark, light, or follow the operating system. */
@@ -20,6 +24,10 @@ interface Settings {
   setTheme: (theme: ThemeChoice) => void;
   accent: Accent;
   setAccent: (accent: Accent) => void;
+  palette: Palette;
+  setPalette: (palette: Palette) => void;
+  gridPattern: GridPattern;
+  setGridPattern: (pattern: GridPattern) => void;
   manaMath: ManaMathSettings;
   setManaMath: (patch: Partial<ManaMathSettings>) => void;
   /** Snap dropped cards to the table grid (stacking works either way). */
@@ -43,6 +51,10 @@ export const useSettings = create<Settings>()(
       setTheme: (theme) => set({ theme }),
       accent: 'default',
       setAccent: (accent) => set({ accent }),
+      palette: 'table',
+      setPalette: (palette) => set({ palette }),
+      gridPattern: 'dots',
+      setGridPattern: (gridPattern) => set({ gridPattern }),
       manaMath: DEFAULT_MANA_MATH,
       setManaMath: (patch) => set((s) => ({ manaMath: { ...s.manaMath, ...patch } })),
       gridSnap: true,
