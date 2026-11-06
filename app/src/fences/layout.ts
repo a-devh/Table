@@ -131,18 +131,21 @@ export const frameOf = (f: Fence): Rect => f.frame ?? { x: f.x, y: f.y, width: f
 const downToGrid = (v: number) => Math.floor(v / GRID) * GRID;
 
 /**
- * Where a fence sits: its frame, grown on any side so every card keeps one
- * cell of padding from the edge. Run again after cards move, the fence grows
- * toward cards near an edge and shrinks back (never below the frame) when they
- * move away. `content` adds areas it must hold too: a sorted view's laid-out
+ * Where a fence sits: snug around its cards with one cell of padding on every
+ * side (its frame when it's empty). Run again after cards move, the fence grows
+ * toward cards near an edge and shrinks back when they move away. `content` adds areas it must hold too: a sorted view's laid-out
  * area, or its groups (each with the padding around it).
  */
 export function fitFence(fence: Fence, cards: TableCard[], content: Rect[] = []): Rect {
+  // With anything in it, a fence hugs its contents; the frame it was drawn or
+  // resized to only sizes it while it's empty. (A frame kept as a minimum left
+  // an extra row behind whenever a pile moved or shrank inside the fence.)
+  const empty = !cards.length && !content.length;
   const frame = frameOf(fence);
-  let left = frame.x;
-  let top = frame.y;
-  let right = frame.x + frame.width;
-  let bottom = frame.y + frame.height;
+  let left = empty ? frame.x : Infinity;
+  let top = empty ? frame.y : Infinity;
+  let right = empty ? frame.x + frame.width : -Infinity;
+  let bottom = empty ? frame.y + frame.height : -Infinity;
   const include = (x0: number, y0: number, x1: number, y1: number) => {
     left = Math.min(left, x0);
     top = Math.min(top, y0);
