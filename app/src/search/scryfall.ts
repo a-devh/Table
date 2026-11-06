@@ -233,3 +233,68 @@ export function listSets(): Promise<SetInfo[]> {
   });
   return setsRequest;
 }
+
+export interface CardRequest {
+  name: string;
+  set?: string;
+  number?: string;
+}
+
+const sameName = (a: string, b: string) => {
+  const x = a.toLowerCase();
+  const y = b.toLowerCase();
+  return x === y || x.split(' // ')[0] === y.split(' // ')[0];
+};
+
+/**
+ * Look up many cards at once (Scryfall's collection endpoint, 75 per request,
+ * paced like every other request). A request with a set and number gets that
+ * printing; one that isn't found that way is looked up again by name.
+ * Returns the card for each request, or null when Scryfall doesn't know it.
+ */
+export async function lookupCards(requests: CardRequest[]): Promise<(CardData | null)[]> {
+  const result: (CardData | null)[] = requests.map(() => null);
+  const run = async (indexes: number[], byPrinting: boolean) => {
+    for (let i = 0; i < indexes.length; i += 75) {
+      const batch = indexes.slice(i, i + 75);
+      const identifiers = batch.map((k) => {
+        const r = requests[k];
+        return byPrinting && r.set && r.number ? { set: r.set, collector_number: r.number } : { name: r.name };
+      });
+      const raw = await browserPost<RawList<RawCard>>('/cards/collection', { identifiers });
+      const cards = raw.data.map(toCardData);
+      for (const k of batch) {
+        const r = requests[k];
+        const hit =
+          byPrinting && r.set && r.number
+            ? cards.find((c) => c.set === r.set && c.collectorNumber === r.number)
+            : cards.find((c) => sameName(c.name, r.name));
+        if (hit) result[k] = hit;
+      }
+    }
+  };
+  const all = requests.map((_, k) => k);
+  await run(all.filter((k) => requests[k].set && requests[k].number), true);
+  await run(all.filter((k) => !result[k]), false);
+  return result;
+}
+
+/** A POST to Scryfall, in the same paced queue as browser GETs. */
+async function browserPost<T>(path: string, body: unknown): Promise<T> {
+  const turn = browserQueue.then(async () => {
+    if (Date.now() < blockedUntil) throw new Error(`Scryfall asked Table to slow down. Try again in ${Math.ceil((blockedUntil - Date.now()) / 1000)} s.`);
+    const wait = lastBrowserRequest + 100 - Date.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    lastBrowserRequest = Date.now();
+  });
+  browserQueue = turn.catch(() => undefined);
+  await turn;
+  const res = await fetch(`${API}${path}`, { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (res.status === 429) {
+    blockedUntil = Date.now() + 60_000;
+    throw new Error('Scryfall asked Table to slow down. Try again in a minute.');
+  }
+  const json = await res.json();
+  if (!res.ok) throw new Error(json?.details ?? `Scryfall error ${res.status}`);
+  return json as T;
+}

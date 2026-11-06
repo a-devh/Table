@@ -6,6 +6,7 @@ import { useDecks } from './decksStore';
 import { deleteFromLibrary, openFromLibrary, saveToLibrary } from './library';
 import { Deckbox } from './Deckbox';
 import { menuGesture } from '../app/device';
+import { ImportDialog } from '../utility/ImportDialog';
 import ui from '../app/ui.module.css';
 import panel from '../app/Modules.module.css';
 import search from '../search/SearchModule.module.css';
@@ -17,6 +18,7 @@ export function DecksModule() {
   const saved = useFileState((f) => f.saved);
   const dirty = useTable((t) => isDirty(t, saved));
   const [filter, setFilter] = useState('');
+  const [importing, setImporting] = useState(false);
   const current = deckId ? decks[deckId] : undefined;
 
   const needle = filter.trim().toLowerCase();
@@ -46,6 +48,10 @@ export function DecksModule() {
           </button>
         )}
       </div>
+      <button className={ui.button} style={{ alignSelf: 'flex-start' }} onClick={() => setImporting(true)}>
+        Import a deck list…
+      </button>
+      {importing && <ImportDialog onClose={() => setImporting(false)} />}
       {Object.keys(decks).length > 3 && (
         <input className={ui.input} placeholder="Filter by name" aria-label="Filter decks" value={filter} onChange={(e) => setFilter(e.target.value)} />
       )}
