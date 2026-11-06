@@ -9,11 +9,11 @@
   cursor: default;
 }
 
-/* Boxes on a shelf: as many columns as fit. */
+/* One big tile per deck, full width. */
 .shelf {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 6px 8px;
+  grid-template-columns: 1fr;
+  gap: 10px;
 }
 
 .hint {

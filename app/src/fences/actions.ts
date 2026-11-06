@@ -1,30 +1,32 @@
 // Fence behaviour that combines the layout rules with table actions.
 import { useTable } from '../model/store';
 import { CARD_HEIGHT, CARD_WIDTH, cardsInFence, groupShown } from '../model/derived';
-import type { FenceView, Point, Rect, TableCard } from '../model/types';
-import { FENCE_PAD, fitFence, frameOf, layoutFence } from './layout';
+import type { FenceView, Rect, TableCard } from '../model/types';
+import { FENCE_PAD, fitFence, layoutFence } from './layout';
 
 const padded = (r: Rect): Rect => ({ x: r.x - FENCE_PAD, y: r.y - FENCE_PAD, width: r.width + 2 * FENCE_PAD, height: r.height + 2 * FENCE_PAD });
 
+/**
+ * Pick a view. A sorted view lays the cards out once; after that they can be
+ * moved around freely, and picking the same view again sorts them back.
+ */
 export function applyFenceView(fenceId: string, view: FenceView) {
   const t = useTable.getState();
   const fence = t.fences[fenceId];
   if (!fence) return;
-  // Sorted views lay out from the frame's corner, so the fence can shrink back to it.
-  const { x, y } = frameOf(fence);
+  const { x, y } = fence;
   const layout = view === 'custom' ? null : layoutFence({ ...fence, x, y, view }, cardsInFence(t, fenceId), t.tags);
   t.setFenceView(fenceId, view, layout);
   settleFences();
 }
 
 /**
- * Run after cards are dropped or let go. Sorted fences slot cards into their
- * columns; every open fence grows or shrinks to keep a one-cell padding around
- * its cards (never smaller than the frame the user drew).
+ * Run after cards are dropped or let go. Every open fence grows or shrinks to
+ * keep a one-cell padding around its cards. Cards stay where they're put, in
+ * sorted views too.
  */
 export function settleFences() {
   const t = useTable.getState();
-  const positions: Record<string, Point> = {};
   const rects: Record<string, Rect> = {};
   const fences = Object.values(t.fences);
   // Groups first: their fence then fits around them (with padding).
@@ -34,17 +36,11 @@ export function settleFences() {
   for (const fence of fences) {
     if (fence.stacked || fence.parentId) continue;
     const members = cardsInFence(t, fence.id);
-    if (fence.view === 'custom') {
-      const groups = fences.filter((g) => g.parentId === fence.id).map((g) => padded(rects[g.id] ?? g));
-      rects[fence.id] = fitFence(fence, members, groups);
-    } else {
-      const { x, y } = frameOf(fence);
-      const layout = layoutFence({ ...fence, x, y }, members, t.tags);
-      Object.assign(positions, layout.positions);
-      rects[fence.id] = fitFence(fence, [], [{ x, y, width: layout.width, height: layout.height }]);
-    }
+    // Only Custom shows groups; sorted views' column labels sit in the top padding.
+    const groups = fence.view === 'custom' ? fences.filter((g) => g.parentId === fence.id).map((g) => padded(rects[g.id] ?? g)) : [];
+    rects[fence.id] = fitFence(fence, members, groups);
   }
-  t.placeCards(positions, rects);
+  t.placeCards({}, rects);
 }
 
 /**
@@ -56,8 +52,11 @@ export function settleFences() {
  */
 let live: { fenceId: string; base: Rect; still: TableCard[]; held: Set<string> }[] = [];
 let liveIds = new Set<string>();
-/** Pointer speed (screen px per ms, smoothed) above which a card leaves the fence it's held by. */
-const LET_GO_SPEED = 0.9;
+/**
+ * Pointer speed (screen px per ms, smoothed) above which a card leaves the
+ * fence it's held by: a real flick. Any ordinary drag stays well under it.
+ */
+const LET_GO_SPEED = 3;
 let motion: { x: number; y: number; t: number; speed: number } | null = null;
 
 const centerIn = (c: TableCard, r: Rect) => {
@@ -72,7 +71,7 @@ export function startLiveFit(draggedIds: string[]) {
   motion = null;
   const dragged = draggedIds.map((id) => t.cards[id]).filter(Boolean);
   live = Object.values(t.fences)
-    .filter((f) => !f.stacked && f.view === 'custom' && (!f.parentId || groupShown(f, t.fences)))
+    .filter((f) => !f.stacked && (!f.parentId || groupShown(f, t.fences)))
     .map((f) => {
       const still = cardsInFence(t, f.id).filter((c) => !liveIds.has(c.id));
       const base = fitFence(f, still);

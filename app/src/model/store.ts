@@ -314,7 +314,8 @@ export const useTable = create<TableState & Actions>()((set) => ({
   setFenceView: (fenceId, view, layout) =>
     set((s) => {
       const f = s.fences[fenceId];
-      if (!f || f.stacked || f.view === view) return {};
+      // Picking a sorted view again sorts the cards back (after hand edits); Custom again does nothing.
+      if (!f || f.stacked || (f.view === view && view === 'custom')) return {};
       const members = cardsInFence(s, fenceId);
       // Leaving Custom saves the user's arrangement; returning restores it.
       const customLayout = f.view === 'custom' ? positionsOf(members) : f.customLayout;

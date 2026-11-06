@@ -193,13 +193,18 @@ function FenceHeader({ fence }: { fence: Fence }) {
                   <select
                     aria-label={`${fence.name} view`}
                     className={styles.select}
-                    value={fence.view}
+                    // Always shows the current view but never holds it, so picking it again
+                    // still counts: a sorted view sorts the cards back after hand edits.
+                    value=""
                     disabled={fence.stacked}
                     onChange={(e) => applyFenceView(fence.id, e.target.value as FenceView)}
                   >
+                    <option value="" disabled hidden>
+                      {VIEWS.find((v) => v.value === fence.view)?.label}
+                    </option>
                     {VIEWS.map((v) => (
                       <option key={v.value} value={v.value}>
-                        {v.label}
+                        {v.value === fence.view && v.value !== 'custom' ? `${v.label} (sort again)` : v.label}
                       </option>
                     ))}
                   </select>
