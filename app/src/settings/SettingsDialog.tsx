@@ -3,7 +3,8 @@
 import { createPortal } from 'react-dom';
 import { isTouch } from '../app/device';
 import { useEffect, useState } from 'react';
-import { useSettings, type Accent, type GridPattern, type Palette, type ThemeChoice } from './settingsStore';
+import { useSettings, type Accent, type GridPattern, type ThemeChoice } from './settingsStore';
+import { THEME_PRESETS, themePreset } from './themes';
 import { useFormats } from '../formats/formatsStore';
 import { AddFormatDialog } from '../formats/AddFormatDialog';
 import { useTable } from '../model/store';
@@ -14,15 +15,11 @@ import styles from './settings.module.css';
 const CHANCES = [0.8, 0.85, 0.9, 0.95];
 
 const THEMES: { value: ThemeChoice; label: string }[] = [
-  { value: 'system', label: 'Match system' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'light', label: 'Light' },
+  { value: 'system', label: 'Table (match system)' },
+  { value: 'dark', label: 'Table dark' },
+  { value: 'light', label: 'Table light' },
 ];
 const ACCENTS: Accent[] = ['default', 'amber', 'green', 'violet', 'rose'];
-const PALETTES: { value: Palette; label: string }[] = [
-  { value: 'table', label: 'Table' },
-  { value: 'material', label: 'Material' },
-];
 const GRID_PATTERNS: { value: GridPattern; label: string }[] = [
   { value: 'dots', label: 'Dots' },
   { value: 'fine', label: 'Fine dots' },
@@ -43,6 +40,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setAccent = useSettings((s) => s.setAccent);
   const palette = useSettings((s) => s.palette);
   const setPalette = useSettings((s) => s.setPalette);
+  const preset = themePreset(palette);
+  // "table:dark" etc. picks Table's own colors in that mode; anything else is a preset key.
+  const pickTheme = (value: string) => {
+    if (value.startsWith('table:')) {
+      setPalette('table');
+      setTheme(value.slice(6) as ThemeChoice);
+    } else setPalette(value);
+  };
   const gridPattern = useSettings((s) => s.gridPattern);
   const setGridPattern = useSettings((s) => s.setGridPattern);
   const columns = useSettings((s) => s.searchLayout.columns);
@@ -78,26 +83,32 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         <section className={styles.section}>
           <h3>Appearance</h3>
           <label className={styles.row}>
-            <span>Theme</span>
-            <select className={ui.button} value={theme} onChange={(e) => setTheme(e.target.value as ThemeChoice)}>
-              {THEMES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={styles.row}>
             <span>
-              Colors
-              <small>Material uses Material Design 3's color palette.</small>
+              Theme
+              <small>Table's own colors, or a preset like Nord or Gruvbox.</small>
             </span>
-            <select className={ui.button} value={palette} onChange={(e) => setPalette(e.target.value as Palette)}>
-              {PALETTES.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
+            <select className={ui.button} value={preset ? palette : `table:${theme}`} onChange={(e) => pickTheme(e.target.value)}>
+              <optgroup label="Table">
+                {THEMES.map((t) => (
+                  <option key={t.value} value={`table:${t.value}`}>
+                    {t.label}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Dark">
+                {THEME_PRESETS.filter((p) => !p.light).map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Light">
+                {THEME_PRESETS.filter((p) => p.light).map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.name}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </label>
           <div className={styles.row}>
@@ -112,6 +123,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   title={a === 'default' ? 'Default' : a[0].toUpperCase() + a.slice(1)}
                   className={styles.swatch}
                   data-swatch={a}
+                  // A preset's own accent shows on the Default swatch.
+                  style={a === 'default' && preset ? { background: preset.accent } : undefined}
                   onClick={() => setAccent(a)}
                 />
               ))}

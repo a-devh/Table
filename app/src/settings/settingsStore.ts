@@ -13,8 +13,8 @@ export interface SearchLayout {
 
 export type ThemeChoice = 'system' | 'dark' | 'light';
 export type Accent = 'default' | 'amber' | 'green' | 'violet' | 'rose';
-/** Table color family: the original Table colors, or Material Design 3's baseline palette. */
-export type Palette = 'table' | 'material';
+/** Color theme: 'table' (Table's own colors, with Theme picking dark or light) or a preset key from themes.ts (Nord, Gruvbox, ...). */
+export type Palette = string;
 /** How the snap grid is drawn on the table. */
 export type GridPattern = 'dots' | 'fine' | 'lines' | 'none';
 
