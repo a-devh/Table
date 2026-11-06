@@ -76,7 +76,7 @@ type Drag =
       downX: number;
       downY: number;
     }
-  | { kind: 'draw'; startX: number; startY: number; x: number; y: number }
+  | { kind: 'draw'; startX: number; startY: number; x: number; y: number; cardId?: string }
   | { kind: 'box'; startX: number; startY: number; x: number; y: number; cardId?: string; base: string[] };
 
 // Pixi's clientX/Y are relative to the canvas; DOM checks need window coordinates.
@@ -255,6 +255,56 @@ const DRAG_THRESHOLD = 4;
 /** Turning a double-faced card over: the new side opens out from edge-on over this long. */
 const FLIP_MS = 200;
 
+/** Two cards overlap (are in the same pile). */
+const overlaps = (a: TableCard, b: TableCard) => Math.abs(a.x - b.x) < CARD_WIDTH && Math.abs(a.y - b.y) < CARD_HEIGHT;
+
+/**
+ * The cards from `from` to `to` (inclusive) in drawing order, when both are in
+ * the same pile (cards connected by overlapping); null otherwise.
+ */
+function pileRange(cards: Record<string, TableCard>, from: string, to: string): string[] | null {
+  if (!cards[from] || !cards[to]) return null;
+  const all = Object.values(cards);
+  const pile = new Set([from]);
+  const queue = [cards[from]];
+  while (queue.length) {
+    const c = queue.pop()!;
+    for (const o of all) {
+      if (pile.has(o.id) || !overlaps(c, o)) continue;
+      pile.add(o.id);
+      queue.push(o);
+    }
+  }
+  if (!pile.has(to)) return null;
+  const order = Object.keys(cards).filter((id) => pile.has(id));
+  const [a, b] = [order.indexOf(from), order.indexOf(to)].sort((x, y) => x - y);
+  return order.slice(a, b + 1);
+}
+
+/** Cards whose visible part (not covered by cards drawn above them) touches the rectangle. */
+function visibleHits(cards: TableCard[], r: { x: number; y: number; width: number; height: number }): string[] {
+  const hits: string[] = [];
+  cards.forEach((c, i) => {
+    const x0 = Math.max(r.x, c.x);
+    const y0 = Math.max(r.y, c.y);
+    const x1 = Math.min(r.x + r.width, c.x + CARD_WIDTH);
+    const y1 = Math.min(r.y + r.height, c.y + CARD_HEIGHT);
+    if (x0 >= x1 || y0 >= y1) return;
+    const above = cards.slice(i + 1).filter((o) => o.x < x1 && o.x + CARD_WIDTH > x0 && o.y < y1 && o.y + CARD_HEIGHT > y0);
+    if (!above.length) return void hits.push(c.id);
+    // Sample the touched area: any point no card above covers means the box touches a visible part.
+    const step = 12;
+    for (let x = x0; x <= x1; x += Math.min(step, Math.max(1, x1 - x))) {
+      for (let y = y0; y <= y1; y += Math.min(step, Math.max(1, y1 - y))) {
+        if (!above.some((o) => x >= o.x && x <= o.x + CARD_WIDTH && y >= o.y && y <= o.y + CARD_HEIGHT)) return void hits.push(c.id);
+        if (y === y1) break;
+      }
+      if (x === x1) break;
+    }
+  });
+  return hits;
+}
+
 export class TableScene {
   private world = new Container();
   private fenceLayer = new Container();
@@ -281,6 +331,8 @@ export class TableScene {
   /** Hover magnify per card (0..1), and where a pile card slides out to (table px). */
   private hover = new Map<string, Spring & { slide: { x: number; y: number }; anchor: { x: number; y: number } }>();
   private hoverId: string | null = null;
+  /** The last card picked by a click: Shift + click selects from here to the clicked card. */
+  private anchor: string | null = null;
   private lastPointer = { x: 0, y: 0 };
   private hoverTimer: ReturnType<typeof setTimeout> | undefined;
   private targets = new Map<string, { x: number; y: number }>();
@@ -331,6 +383,8 @@ export class TableScene {
     window.addEventListener('pointercancel', this.onTouchUp, true);
     host.style.touchAction = 'none';
     window.addEventListener(THEME_EVENT, this.onTheme);
+    // Shift is for selecting: no hover pop-out while it's held.
+    window.addEventListener('keydown', this.onShift);
 
     this.sync(useTable.getState());
     this.unsubscribe = useTable.subscribe((s, prev) => {
@@ -360,6 +414,7 @@ export class TableScene {
     window.removeEventListener('pointercancel', this.onTouchUp, true);
     this.cancelLongPress();
     window.removeEventListener(THEME_EVENT, this.onTheme);
+    window.removeEventListener('keydown', this.onShift);
   }
 
   /** Theme changed: rebuild everything drawn in theme colors (card images stay cached). */
@@ -937,6 +992,8 @@ export class TableScene {
     if (this.isDrawGesture(e)) {
       e.stopPropagation();
       this.startDraw(e);
+      // Ctrl + click (no drag) on a card toggles just that card; Ctrl + drag still draws a fence.
+      if (this.drag?.kind === 'draw' && (e.ctrlKey || e.metaKey)) this.drag.cardId = id;
       return;
     }
     if (e.button === 2) {
@@ -958,6 +1015,7 @@ export class TableScene {
     const t = useTable.getState();
     const selection = t.selection.includes(id) ? t.selection : [id];
     t.select(selection);
+    this.anchor = id;
     // The cards keep their layer until the pointer actually moves (see startCarry).
     const cards = useTable.getState().cards;
     const start = Object.fromEntries(selection.filter((c) => cards[c]).map((c) => [c, { x: cards[c].x, y: cards[c].y }]));
@@ -1010,7 +1068,17 @@ export class TableScene {
 
   // ---- hover magnify -------------------------------------------------------
 
+  private toggleCard(id: string) {
+    const t = useTable.getState();
+    t.select(t.selection.includes(id) ? t.selection.filter((s) => s !== id) : [...t.selection, id]);
+  }
+
+  private onShift = (e: KeyboardEvent) => {
+    if (e.key === 'Shift') this.endHover();
+  };
+
   private updateCardHover(e: FederatedPointerEvent) {
+    if (e.shiftKey) return this.endHover();
     const p = this.world.toLocal(e.global);
     const id = cardAt(useTable.getState(), p.x, p.y)?.id ?? null;
     this.lastPointer = { x: p.x, y: p.y };
@@ -1115,9 +1183,8 @@ export class TableScene {
         .stroke({ width: 1.5 / t.camera.zoom, color: colors.accent });
       if (this.drag.kind === 'box' && (r.width >= 4 || r.height >= 4)) {
         // Live selection: every card the box touches.
-        const hits = Object.values(t.cards)
-          .filter((c) => c.x < r.x + r.width && c.x + CARD_WIDTH > r.x && c.y < r.y + r.height && c.y + CARD_HEIGHT > r.y)
-          .map((c) => c.id);
+        // Every card whose visible part the box touches (in a pile, its exposed strip, not the part under other cards).
+        const hits = visibleHits(Object.values(t.cards), r);
         t.select([...new Set([...this.drag.base, ...hits])]);
       }
       return;
@@ -1201,9 +1268,13 @@ export class TableScene {
       const slop = e.pointerType === 'touch' ? 10 / useTable.getState().camera.zoom : 4;
       const tap = r.width < slop && r.height < slop;
       if (drag.cardId && tap) {
-        const t = useTable.getState();
-        const id = drag.cardId;
-        t.select(t.selection.includes(id) ? t.selection.filter((s) => s !== id) : [...t.selection, id]);
+        // Shift + click: select every card between the last one picked and this one, in this pile.
+        const range = this.anchor ? pileRange(useTable.getState().cards, this.anchor, drag.cardId) : null;
+        if (range) {
+          const t = useTable.getState();
+          t.select([...new Set([...t.selection, ...range])]);
+        } else this.toggleCard(drag.cardId);
+        this.anchor = drag.cardId;
       } else if (tap && useTable.getState().activeTool === 'select') {
         // Select tool: a tap on empty table clears the selection.
         useTable.getState().select([]);
@@ -1212,6 +1283,11 @@ export class TableScene {
     if (drag?.kind === 'draw') {
       this.drawPreview.clear();
       const r = this.drawRect(drag);
+      if (drag.cardId && r.width < MIN_FENCE && r.height < MIN_FENCE) {
+        this.toggleCard(drag.cardId);
+        this.anchor = drag.cardId;
+        return;
+      }
       if (r.width < MIN_FENCE || r.height < MIN_FENCE) return;
       const { camera } = useTable.getState();
       // Ask for the section next to the fence's top-right corner.
