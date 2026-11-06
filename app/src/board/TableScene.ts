@@ -41,7 +41,9 @@ import { priceLabel } from '../rules/prices';
 /** Theme colors (Settings > Appearance), refreshed when the theme changes. */
 let colors = tableColors();
 import type { Issue } from '../rules/deckCheck';
-import { COLUMN_WIDTH, FIRST_CARD, groupCards } from '../fences/layout';
+import { FIRST_CARD, groupCards } from '../fences/layout';
+/** Where a sorted fence's column labels sit from its top (in the padding above the first card). */
+const LABEL_TOP = 14;
 
 /** Smallest fence worth keeping; smaller drags are treated as a slip. */
 const MIN_FENCE = 40;
@@ -305,6 +307,33 @@ function visibleHits(cards: TableCard[], r: { x: number; y: number; width: numbe
   return hits;
 }
 
+interface ColumnLabel {
+  text: string;
+  x: number;
+  y: number;
+}
+
+/**
+ * A sorted view's column labels, relative to the fence: each sits just above
+ * its group's top card, so it follows the cards when they're moved by hand.
+ * Groups whose top cards end up in the same spot share one label.
+ */
+function columnLabels(fence: Fence, groups: { label: string; count: number; cards: TableCard[] }[]): ColumnLabel[] {
+  const labels: ColumnLabel[] = [];
+  const tops = groups
+    .filter((g) => g.cards.length)
+    .map((g) => ({ text: `${g.label} (${g.count})`, top: g.cards.reduce((a, c) => (c.y < a.y ? c : a)) }))
+    .sort((a, b) => a.top.y - b.top.y || a.top.x - b.top.x);
+  for (const { text, top } of tops) {
+    const x = top.x - fence.x;
+    const y = top.y - fence.y - (FIRST_CARD.y - LABEL_TOP);
+    const near = labels.find((l) => Math.abs(l.x - x) < CARD_WIDTH / 2 && Math.abs(l.y - y) < 30);
+    if (near) near.text += ` · ${text}`;
+    else labels.push({ text, x, y });
+  }
+  return labels;
+}
+
 export class TableScene {
   private world = new Container();
   private fenceLayer = new Container();
@@ -490,8 +519,8 @@ export class TableScene {
       view.visible = !fence.parentId || groupShown(fence, state.fences);
       if (!view.visible) continue;
       // Redraw only when something visible changed (not on every camera move).
-      const labels = fence.view === 'custom' || fence.stacked ? [] : groupCards(cardsInFence(state, fence.id), fence.view, state.tags).map((g) => `${g.label} (${g.count})`);
-      const key = [fence.width, fence.height, ...labels].join('|');
+      const labels = fence.view === 'custom' || fence.stacked ? [] : columnLabels(fence, groupCards(cardsInFence(state, fence.id), fence.view, state.tags));
+      const key = [fence.width, fence.height, ...labels.map((l) => `${l.text}@${l.x},${l.y}`)].join('|');
       if (this.fenceKeys.get(fence.id) !== key) {
         this.fenceKeys.set(fence.id, key);
         this.drawFence(view, fence, labels);
@@ -499,7 +528,7 @@ export class TableScene {
     }
   }
 
-  private drawFence(view: Container, fence: Fence, groupLabels: string[]) {
+  private drawFence(view: Container, fence: Fence, groupLabels: ColumnLabel[]) {
     view.removeChildren().forEach((c) => c.destroy());
     // A group is drawn quieter than its fence: a fainter line and a light tint.
     const group = !!fence.parentId;
@@ -509,14 +538,14 @@ export class TableScene {
       .stroke({ width: group ? 1.5 : 1.5, color: group ? colors.accent : colors.fenceLine, alpha: group ? 0.55 : 1 });
     view.addChild(frame);
     // Sorted views label each column (the name itself is in the React overlay).
-    groupLabels.forEach((text, i) => {
+    for (const { text, x, y } of groupLabels) {
       const label = new Text({
         text,
         style: { fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14, fontWeight: '600', fill: colors.fenceLabel },
       });
-      label.position.set(FIRST_CARD.x + i * COLUMN_WIDTH, 14);
+      label.position.set(x, y);
       view.addChild(label);
-    });
+    }
   }
 
   private syncCards(state: TableState) {
