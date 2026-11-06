@@ -23,6 +23,9 @@ export const HeartIcon = () => (
 export const BoxIcon = () => (
   <svg {...base}><rect x="4" y="7" width="16" height="13" rx="2" /><path d="M7 7V4h10v3" /></svg>
 );
+export const DecksIcon = () => (
+  <svg {...base}><path d="M6 8h10v12H6z" /><path d="M16 8l3-3v12l-3 3" /><path d="M6 8l3-3h10" /></svg>
+);
 export const GearIcon = () => (
   <svg {...base}><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" /></svg>
 );

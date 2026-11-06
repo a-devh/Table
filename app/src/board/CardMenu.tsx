@@ -15,6 +15,7 @@ import { useArtPicker } from '../cards/artPickerStore';
 import { allPrices, scryfallUrl } from '../rules/prices';
 import { openLink } from '../app/openLink';
 import { useLocalCards } from '../local/localCards';
+import { setDeckCover } from '../decks/library';
 import styles from './CardMenu.module.css';
 
 type ItemFn = (label: string, onClick: () => void, opts?: { disabled?: boolean; hint?: string; keepOpen?: boolean }) => React.ReactNode;
@@ -153,6 +154,7 @@ function MenuItems({ target, close }: { target: MenuTarget; close: () => void })
       {onTable && merged && item(`Split into ${first.copies.length}`, () => (t.splitCard(first.id, STEP), settleFences()))}
 
       <div className={styles.divider} />
+      {onTable && n === 1 && item('Use as deck cover', () => setDeckCover(faceOf(first)))}
       {onTable && cards.some(canFlip) && item('Turn over', () => t.flipCards(cards.map((c) => c.id)), { hint: 'F' })}
       {n === 1 &&
         item('Select art…', () =>

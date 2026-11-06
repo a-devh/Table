@@ -117,6 +117,12 @@ export async function confirmDiscard(message: string): Promise<boolean> {
   return window.confirm(message);
 }
 
+/** Ask before something that can't be undone. */
+export async function confirmAction(message: string, title: string, okLabel: string): Promise<boolean> {
+  if (isTauri()) return ask(message, { title, kind: 'warning', okLabel, cancelLabel: 'Cancel' });
+  return window.confirm(message);
+}
+
 /** A file-name-safe version of the deck name. */
 export function fileNameFor(deckName: string, extension: string): string {
   const base = deckName.trim().replace(/[\\/:*?"<>|]+/g, '').slice(0, 80) || 'Untitled deck';

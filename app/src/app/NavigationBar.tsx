@@ -1,4 +1,4 @@
-import { BoxIcon, ExitIcon, GearIcon, MoonIcon, SearchIcon, StarIcon, SunIcon, TableIcon } from './icons';
+import { BoxIcon, DecksIcon, ExitIcon, GearIcon, MoonIcon, SearchIcon, StarIcon, SunIcon, TableIcon } from './icons';
 import { usePhone } from './device';
 import { useSettings } from '../settings/settingsStore';
 import { resolvedTheme } from '../settings/theme';
@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { SettingsDialog } from '../settings/SettingsDialog';
 import styles from './NavigationBar.module.css';
 
-export type ModuleName = 'search' | 'favorites' | 'collection';
+export type ModuleName = 'search' | 'favorites' | 'collection' | 'decks';
 
 interface Props {
   open: ModuleName | null;
@@ -19,6 +19,7 @@ const items: { name: ModuleName; label: string; Icon: () => React.JSX.Element }[
   { name: 'search', label: 'Search', Icon: SearchIcon },
   { name: 'favorites', label: 'Favorites', Icon: StarIcon },
   { name: 'collection', label: 'Collection', Icon: BoxIcon },
+  { name: 'decks', label: 'Decks', Icon: DecksIcon },
 ];
 
 export function NavigationBar({ open, onToggle, onClose }: Props) {
