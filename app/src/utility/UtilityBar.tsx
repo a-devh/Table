@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTable } from '../model/store';
 import { isDirty, newTable, openTable, saveTable, useFileState } from './fileState';
 import { ExportDialog } from './ExportDialog';
+import { ImportDialog } from './ImportDialog';
 import { BUILT_IN_FORMATS } from '../rules/formats';
 import { useFormats } from '../formats/formatsStore';
 import { AddFormatDialog } from '../formats/AddFormatDialog';
@@ -21,6 +22,7 @@ export function UtilityBar() {
   const renameDeck = useTable((s) => s.renameDeck);
   const setFormat = useTable((s) => s.setFormat);
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [addingFormat, setAddingFormat] = useState(false);
   const [editingFormat, setEditingFormat] = useState(false);
   const custom = useFormats((s) => s.custom);
@@ -38,6 +40,7 @@ export function UtilityBar() {
       if (key === 's') saveTable(e.shiftKey);
       else if (key === 'o') openTable();
       else if (key === 'n') newTable();
+      else if (key === 'i' && !e.shiftKey) setImporting(true);
       else return;
       e.preventDefault();
     };
@@ -110,6 +113,12 @@ export function UtilityBar() {
       <button className={ui.button} title="Open a .table file (Ctrl+O)" onClick={() => openTable()}>
         Open
       </button>
+      {/* Desktop: Import lives in the Decks panel (and Ctrl+I), keeping this bar short. */}
+      {phone && (
+        <button className={ui.button} title="Paste a deck list (Arena, Moxfield, MTGO, text)" onClick={() => setImporting(true)}>
+          Import
+        </button>
+      )}
       <button className={ui.button} title={dirty ? 'Unsaved changes (Ctrl+S)' : 'Save (Ctrl+S)'} onClick={() => saveTable()}>
         Save
         {dirty && <span className={styles.dirty} aria-label="unsaved changes" />}
@@ -122,6 +131,7 @@ export function UtilityBar() {
   const dialogs = (
     <>
       {exporting && <ExportDialog onClose={() => setExporting(false)} />}
+      {importing && <ImportDialog onClose={() => setImporting(false)} />}
       {addingFormat && (
         <AddFormatDialog
           onClose={() => setAddingFormat(false)}
@@ -159,7 +169,7 @@ export function UtilityBar() {
     return (
       <div role="toolbar" aria-label="Deck" className={ui.bubbleBottom}>
         <button
-          aria-label="Deck: name, format, New, Open, Save, Export"
+          aria-label="Deck: name, format, New, Open, Import, Save, Export"
           aria-expanded={sheetOpen}
           aria-pressed={sheetOpen}
           className={ui.iconButton}
