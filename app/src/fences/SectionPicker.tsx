@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { useTable } from '../model/store';
 import { useFenceUi } from './uiStore';
 import { settleFences } from './actions';
+import { fitFence } from './layout';
+import { cardsInFence } from '../model/derived';
 import { useCurrentFormat } from '../formats/formatsStore';
 import { zoneNames } from '../rules/formats';
 import ui from '../app/ui.module.css';
@@ -43,9 +45,17 @@ export function SectionPicker() {
 
   const choose = (section: string) => {
     const t = useTable.getState();
-    if (parent) t.drawFence(pending.x, pending.y, pending.width, pending.height, parent.section, section, parent.id);
-    else t.drawFence(pending.x, pending.y, pending.width, pending.height, section, section);
-    // Fit around the cards it was drawn over (one cell of padding).
+    const id = parent
+      ? t.drawFence(pending.x, pending.y, pending.width, pending.height, parent.section, section, parent.id)
+      : t.drawFence(pending.x, pending.y, pending.width, pending.height, section, section);
+    // Drawn over cards: fit snugly around them (one cell of padding), however loosely it was drawn,
+    // so a loose draw doesn't leave an extra row that the fence could never shrink out of.
+    const drawn = useTable.getState();
+    const members = cardsInFence(drawn, id);
+    if (members.length) {
+      const seed = { x: members[0].x, y: members[0].y, width: 0, height: 0 };
+      drawn.setFenceFrame(id, fitFence({ ...drawn.fences[id], frame: seed }, members));
+    }
     settleFences();
     // Back to Hand so cards can be dragged straight in.
     t.setTool('hand');

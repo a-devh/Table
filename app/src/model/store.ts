@@ -40,6 +40,8 @@ interface Actions {
   drawFence: (x: number, y: number, width: number, height: number, section: string, name: string, parentId?: string) => string;
   moveFence: (fenceId: string, dx: number, dy: number, cardIds: string[]) => void;
   resizeFence: (fenceId: string, width: number, height: number) => void;
+  /** Move and size a fence to this rectangle and make it the fence's frame (its smallest size). */
+  setFenceFrame: (fenceId: string, rect: Rect) => void;
   /** Remove a fence. Its cards stay on the table. */
   removeFence: (fenceId: string) => void;
   renameFence: (fenceId: string, name: string) => void;
@@ -294,6 +296,12 @@ export const useTable = create<TableState & Actions>()((set) => ({
       // Its groups go too (their cards stay).
       for (const g of Object.values(s.fences)) if (g.parentId === fenceId) delete fences[g.id];
       return { fences };
+    }),
+
+  setFenceFrame: (fenceId, rect) =>
+    set((s) => {
+      const f = s.fences[fenceId];
+      return f ? { fences: { ...s.fences, [fenceId]: { ...f, ...rect, frame: { ...rect } } } } : {};
     }),
 
   resizeFence: (fenceId, width, height) =>
