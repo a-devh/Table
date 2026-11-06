@@ -14,7 +14,7 @@ import { setDeckCover } from '../decks/library';
 import { cachedImage } from '../cards/imageCache';
 import { Application, Assets, CanvasSource, Container, FederatedPointerEvent, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { useTable } from '../model/store';
-import { CARD_HEIGHT, CARD_RADIUS, CARD_SCALE, CARD_WIDTH, cardAt, cardsInFence, groupShown } from '../model/derived';
+import { CARD_HEIGHT, CARD_RADIUS, CARD_SCALE, CARD_WIDTH, GRID_CELL, cardAt, cardsInFence, groupShown } from '../model/derived';
 
 // The placeholder face and the card back are drawn at a 96x134 base size and
 // scaled up by CARD_SCALE, so their proportions stay in one place.
@@ -64,7 +64,18 @@ function cardColors(card: TableCard) {
 
 type Drag =
   | { kind: 'pan'; lastX: number; lastY: number }
-  | { kind: 'cards'; ids: string[]; lead: string; lastX: number; lastY: number; start: Record<string, { x: number; y: number }> }
+  | {
+      kind: 'cards';
+      ids: string[];
+      lead: string;
+      lastX: number;
+      lastY: number;
+      start: Record<string, { x: number; y: number }>;
+      /** False until the pointer has moved past DRAG_THRESHOLD: a click never changes a card's layer. */
+      started: boolean;
+      downX: number;
+      downY: number;
+    }
   | { kind: 'draw'; startX: number; startY: number; x: number; y: number }
   | { kind: 'box'; startX: number; startY: number; x: number; y: number; cardId?: string; base: string[] };
 
@@ -230,6 +241,18 @@ const LIFT_FREQ = (2 * Math.PI) / 260;
 const LIFT_DAMPING = 0.45;
 const TILT_FREQ = (2 * Math.PI) / 340;
 const TILT_DAMPING = 0.5;
+/** Hover: a card under the pointer for this long magnifies and comes to the front. */
+const HOVER_DELAY = 300;
+/** Magnified size on screen: at least this many times bigger, and at least this many screen px wide (up to MAX). */
+const HOVER_MIN_SCALE = 1.25;
+const HOVER_SCREEN_WIDTH = 330;
+const HOVER_MAX_SCALE = 3;
+/** A card in a pile slides this far (table px) out of it while hovered, back against the way the pile runs. */
+const PILE_SLIDE = 2 * GRID_CELL;
+const HOVER_FREQ = (2 * Math.PI) / 300;
+const HOVER_DAMPING = 0.8;
+/** A press only becomes a drag (and lifts the card out of its layer) after this many screen px. */
+const DRAG_THRESHOLD = 4;
 /** Turning a double-faced card over: the new side opens out from edge-on over this long. */
 const FLIP_MS = 200;
 
@@ -256,6 +279,11 @@ export class TableScene {
   private app: Application;
   // Motion: where each card is drawn (base, before lift), where it's heading, and how lifted it is.
   private base = new Map<string, { x: number; y: number }>();
+  /** Hover magnify per card (0..1), and where a pile card slides out to (table px). */
+  private hover = new Map<string, Spring & { slide: { x: number; y: number }; anchor: { x: number; y: number } }>();
+  private hoverId: string | null = null;
+  private lastPointer = { x: 0, y: 0 };
+  private hoverTimer: ReturnType<typeof setTimeout> | undefined;
   private targets = new Map<string, { x: number; y: number }>();
   private tweens = new Map<string, Tween>();
   private lift = new Map<string, Spring>();
@@ -522,10 +550,7 @@ export class TableScene {
     const order = Object.keys(state.cards).join(',');
     if (order !== this.cardOrder && !this.drag) {
       this.cardOrder = order;
-      for (const id of Object.keys(state.cards)) {
-        const v = this.cardViews.get(id);
-        if (v) this.cardLayer.addChild(v);
-      }
+      this.restack();
     }
   }
 
@@ -609,20 +634,27 @@ export class TableScene {
     const b = this.base.get(id);
     if (!b) return;
     const l = this.lift.get(id)?.value ?? 0;
-    const scale = liftScale(l);
+    const h = this.hover.get(id);
+    const hv = h ? Math.max(0, h.value) : 0;
+    const scale = liftScale(l) * (1 + (this.hoverScale() - 1) * hv);
+    const sx = h ? h.slide.x * hv : 0;
+    const sy = h ? h.slide.y * hv : 0;
     const rotation = (this.rotations.get(id) ?? 0) + (this.tilt.get(id)?.value ?? 0);
     const flip = this.flips.get(id);
     const turn = flip === undefined ? 1 : Math.max(0.02, easeOut(Math.min(1, (performance.now() - flip) / FLIP_MS)));
     view.scale.set(scale * turn, scale);
     view.rotation = rotation;
-    // Keep the center where it belongs: position = center - rotated, scaled half size.
-    const hx = (CARD_WIDTH / 2) * scale * turn;
-    const hy = (CARD_HEIGHT / 2) * scale;
+    // Keep the anchor where it belongs: position = anchor - rotated, scaled anchor offset.
+    // The anchor is the card's center, moving to the hovered spot as the card magnifies.
+    const ax = CARD_WIDTH / 2 + (h ? (h.anchor.x - CARD_WIDTH / 2) * hv : 0);
+    const ay = CARD_HEIGHT / 2 + (h ? (h.anchor.y - CARD_HEIGHT / 2) * hv : 0);
+    const hx = ax * scale * turn;
+    const hy = ay * scale;
     const cos = Math.cos(rotation);
     const sin = Math.sin(rotation);
-    view.position.set(b.x + CARD_WIDTH / 2 - (hx * cos - hy * sin), b.y + CARD_HEIGHT / 2 - (hx * sin + hy * cos) - LIFT_RISE * Math.max(0, l));
+    view.position.set(b.x + sx + ax - (hx * cos - hy * sin), b.y + sy + ay - (hx * sin + hy * cos) - LIFT_RISE * Math.max(0, l));
     const shadow = view.getChildByLabel('shadow');
-    if (shadow) shadow.alpha = Math.max(0, Math.min(1, l));
+    if (shadow) shadow.alpha = Math.max(0, Math.min(1, Math.max(l, hv)));
   }
 
   private setLift(ids: string[], target: number) {
@@ -641,7 +673,7 @@ export class TableScene {
   }
 
   private tick = () => {
-    if (!this.tweens.size && !this.lift.size && !this.tilt.size && !this.flips.size) return;
+    if (!this.tweens.size && !this.lift.size && !this.tilt.size && !this.flips.size && !this.hover.size) return;
     const now = performance.now();
     const dt = Math.min(64, this.app.ticker.deltaMS);
     const touched = new Set<string>();
@@ -691,6 +723,18 @@ export class TableScene {
       if (!carried.has(id) && settled(t)) this.tilt.delete(id);
       touched.add(id);
     }
+    let unhovered = false;
+    for (const [id, h] of this.hover) {
+      if (calm) h.value = h.target;
+      else stepSpring(h, dt, HOVER_FREQ, HOVER_DAMPING);
+      if (h.target === 0 && (calm || (h.value < 0.01 && Math.abs(h.velocity) < 0.001))) {
+        this.hover.delete(id);
+        unhovered = true;
+      }
+      touched.add(id);
+    }
+    // A card that's back to normal size goes back to its own layer.
+    if (unhovered) this.restack();
     for (const [id, start] of this.flips) {
       if (now - start >= FLIP_MS) this.flips.delete(id);
       touched.add(id);
@@ -913,14 +957,10 @@ export class TableScene {
     const t = useTable.getState();
     const selection = t.selection.includes(id) ? t.selection : [id];
     t.select(selection);
-    // Bring dragged cards to the top.
-    for (const sid of selection) {
-      const v = this.cardViews.get(sid);
-      if (v) this.cardLayer.addChild(v);
-    }
+    // The cards keep their layer until the pointer actually moves (see startCarry).
     const cards = useTable.getState().cards;
     const start = Object.fromEntries(selection.filter((c) => cards[c]).map((c) => [c, { x: cards[c].x, y: cards[c].y }]));
-    this.drag = { kind: 'cards', ids: selection, lead: id, lastX: e.global.x, lastY: e.global.y, start };
+    this.drag = { kind: 'cards', ids: selection, lead: id, lastX: e.global.x, lastY: e.global.y, start, started: false, downX: e.global.x, downY: e.global.y };
     this.dragPointer = e.pointerId;
     // Touch: a finger held still on the card opens its menu instead.
     this.cancelLongPress();
@@ -934,14 +974,108 @@ export class TableScene {
       this.base.set(sid, { x: c.x, y: c.y });
       this.targets.set(sid, { x: c.x, y: c.y });
     }
-    this.setLift(selection, 1);
-    startLiveFit(selection);
   };
+
+  /** The press became a drag: lift the cards out of their pile and carry them on top. */
+  private startCarry(drag: Extract<Drag, { kind: 'cards' }>) {
+    drag.started = true;
+    this.endHover();
+    for (const sid of drag.ids) {
+      const h = this.hover.get(sid);
+      if (h) h.target = 0;
+      const v = this.cardViews.get(sid);
+      if (v) this.cardLayer.addChild(v);
+    }
+    this.setLift(drag.ids, 1);
+    startLiveFit(drag.ids);
+  }
+
+  /** Draw cards in the saved order, with a hovered card (and anything carried) on top. */
+  private restack() {
+    for (const id of Object.keys(useTable.getState().cards)) {
+      const v = this.cardViews.get(id);
+      if (v) this.cardLayer.addChild(v);
+    }
+    const raised = [...this.hover.keys()].sort((a, b) => Number(a === this.hoverId) - Number(b === this.hoverId));
+    for (const id of raised) {
+      const v = this.cardViews.get(id);
+      if (v) this.cardLayer.addChild(v);
+    }
+    for (const id of this.carried()) {
+      const v = this.cardViews.get(id);
+      if (v) this.cardLayer.addChild(v);
+    }
+  }
+
+  // ---- hover magnify -------------------------------------------------------
+
+  private updateCardHover(e: FederatedPointerEvent) {
+    const p = this.world.toLocal(e.global);
+    const id = cardAt(useTable.getState(), p.x, p.y)?.id ?? null;
+    this.lastPointer = { x: p.x, y: p.y };
+    // Over the magnified card itself (it covers its neighbours now): keep it.
+    if (this.hoverId && this.hoverId !== id && this.overHovered(p)) return;
+    if (id === this.hoverId) return;
+    this.endHover();
+    this.hoverId = id;
+    if (id) this.hoverTimer = setTimeout(() => this.beginHover(id, this.lastPointer), HOVER_DELAY);
+  }
+
+  /** True when a table point is over the hovered card as it's drawn now (slid out and magnified). */
+  private overHovered(p: { x: number; y: number }): boolean {
+    const view = this.hoverId ? this.cardViews.get(this.hoverId) : undefined;
+    if (!view || !this.hover.has(this.hoverId!)) return false;
+    const local = view.toLocal(p, this.world);
+    return local.x >= 0 && local.x <= CARD_WIDTH && local.y >= 0 && local.y <= CARD_HEIGHT;
+  }
+
+  private beginHover(id: string, pointer: { x: number; y: number }) {
+    const t = useTable.getState();
+    const card = t.cards[id];
+    if (!card || this.drag || this.pinch) return;
+    // In a pile (another card lies over this one): slide out of it, back against the way the pile runs,
+    // like pulling a card up out of a fanned stack. The part you're pointing at stays under the pointer.
+    const ids = Object.keys(t.cards);
+    const above = ids
+      .slice(ids.indexOf(id) + 1)
+      .map((o) => t.cards[o])
+      .find((o) => Math.abs(o.x - card.x) < CARD_WIDTH && Math.abs(o.y - card.y) < CARD_HEIGHT);
+    let slide = { x: 0, y: 0 };
+    if (above) {
+      const dx = above.x - card.x;
+      const dy = above.y - card.y;
+      const len = Math.hypot(dx, dy) || 1;
+      slide = { x: (-dx / len) * PILE_SLIDE, y: (-dy / len) * PILE_SLIDE };
+    }
+    // Magnify about the pointer, so the card grows around the spot you're looking at.
+    const anchor = { x: Math.max(0, Math.min(CARD_WIDTH, pointer.x - card.x)), y: Math.max(0, Math.min(CARD_HEIGHT, pointer.y - card.y)) };
+    const existing = this.hover.get(id);
+    if (existing) {
+      existing.target = 1;
+      existing.slide = slide;
+      existing.anchor = anchor;
+    } else this.hover.set(id, { value: 0, velocity: 0, target: 1, slide, anchor });
+    this.restack();
+  }
+
+  private endHover() {
+    clearTimeout(this.hoverTimer);
+    const h = this.hoverId ? this.hover.get(this.hoverId) : undefined;
+    if (h) h.target = 0;
+    this.hoverId = null;
+  }
+
+  /** How much bigger a fully hovered card is drawn at the current zoom. */
+  private hoverScale(): number {
+    const zoom = useTable.getState().camera.zoom;
+    return Math.min(HOVER_MAX_SCALE, Math.max(HOVER_MIN_SCALE, HOVER_SCREEN_WIDTH / (CARD_WIDTH * zoom)));
+  }
 
   private onBackgroundDown = (e: FederatedPointerEvent) => {
     if (this.pinch) return;
     if (this.isDrawGesture(e)) return this.startDraw(e);
     useCardMenu.getState().close();
+    this.endHover();
     if (e.button !== 0) return;
     // No hover on a touch screen: touching a fence shows its options.
     if (e.pointerType === 'touch') this.updateHover(e);
@@ -962,7 +1096,12 @@ export class TableScene {
       if (e.pointerType === 'touch') return;
       this.updateIssueTooltip(e);
       this.updatePeek(e);
+      this.updateCardHover(e);
       return this.updateHover(e);
+    }
+    if (this.drag.kind === 'cards' && !this.drag.started) {
+      if (Math.hypot(e.global.x - this.drag.downX, e.global.y - this.drag.downY) < DRAG_THRESHOLD) return;
+      this.startCarry(this.drag);
     }
     if (this.drag.kind === 'draw' || this.drag.kind === 'box') {
       const p = this.world.toLocal(e.global);
@@ -1009,7 +1148,10 @@ export class TableScene {
     const drag = this.drag;
     this.drag = null;
     this.dragPointer = null;
-    if (drag?.kind === 'cards') {
+    if (drag?.kind === 'cards' && !drag.started) {
+      // A click: the card stays exactly where it was, in its own layer.
+      this.restack();
+    } else if (drag?.kind === 'cards') {
       this.setPanelDropTarget(false);
       this.setLift(drag.ids, 0);
       endLiveFit();
@@ -1127,6 +1269,7 @@ export class TableScene {
     // A finger "leaves" every time it lifts; keep a touched fence's options showing.
     if (e.pointerType === 'touch') return;
     this.clearPeek();
+    this.endHover();
     useFenceUi.getState().setHovered(null);
   };
 

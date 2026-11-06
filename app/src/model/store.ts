@@ -21,6 +21,8 @@ interface Actions {
   removeCopy: (cardId: string) => void;
   /** Draw these cards above all others (the card order is the drawing order, and it's saved). */
   bringToFront: (ids: string[]) => void;
+  /** Draw these cards under every other card (in the given order). */
+  sendToBack: (ids: string[]) => void;
   select: (ids: string[]) => void;
   createTag: (name: string) => string;
   tagCard: (cardId: string, tagId: string) => void;
@@ -145,6 +147,15 @@ export const useTable = create<TableState & Actions>()((set) => ({
       const cards: Record<string, TableCard> = {};
       for (const [id, c] of Object.entries(s.cards)) if (!front.has(id)) cards[id] = c;
       for (const id of ids) if (s.cards[id]) cards[id] = s.cards[id];
+      return { cards };
+    }),
+
+  sendToBack: (ids) =>
+    set((s) => {
+      const back = new Set(ids);
+      const cards: Record<string, TableCard> = {};
+      for (const id of ids) if (s.cards[id]) cards[id] = s.cards[id];
+      for (const [id, c] of Object.entries(s.cards)) if (!back.has(id)) cards[id] = c;
       return { cards };
     }),
 

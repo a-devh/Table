@@ -109,6 +109,16 @@ export function land(ids: string[], leadId: string | undefined, noGrid = false) 
   // placeCards draws them on top in top-to-bottom order, so a stack stays in order.
   if (landing) t.placeCards(landing.positions);
   else t.bringToFront([...ids].sort((a, b) => (t.cards[a]?.y ?? 0) - (t.cards[b]?.y ?? 0)));
+  // Put down on its own (touching no other card): it goes back to the table's own level, under any pile.
+  const after = useTable.getState();
+  const moved = new Set(ids);
+  const placed = Object.keys(after.cards).filter((id) => moved.has(id));
+  const others = Object.values(after.cards).filter((c) => !moved.has(c.id));
+  const touches = placed.some((id) => {
+    const c = after.cards[id];
+    return others.some((o) => Math.abs(o.x - c.x) < CARD_WIDTH && Math.abs(o.y - c.y) < CARD_HEIGHT);
+  });
+  if (!touches && placed.length) after.sendToBack(placed);
   useLandingPreview.getState().set(null);
 }
 
